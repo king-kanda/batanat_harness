@@ -18,9 +18,14 @@ help: ## Show this help
 # --- setup -------------------------------------------------------------------
 
 .PHONY: setup
-setup: tools install ## One-command setup: uv, python deps, node deps, .env
+setup: tools install ## One-command setup: uv, python deps, node deps, .env, database
 	@test -f .env || (cp .env.example .env && echo "created .env from .env.example")
-	@echo "Setup complete. Run 'make dev' in two terminals, or 'make check'."
+	@grep -q '^TOKEN_ENCRYPTION_KEY=.\+' .env || ( \
+		KEY=$$(cd $(API_DIR) && $(abspath $(UV)) run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())") && \
+		sed -i "s|^TOKEN_ENCRYPTION_KEY=.*|TOKEN_ENCRYPTION_KEY=$$KEY|" .env && \
+		echo "generated TOKEN_ENCRYPTION_KEY in .env" )
+	$(MAKE) migrate seed
+	@echo "Setup complete. Run 'make api' and 'make web' in two terminals."
 
 .PHONY: tools
 tools: ## Install uv into a project-local venv (no system changes)
@@ -45,6 +50,30 @@ web: ## Run the web app (http://localhost:3000)
 .PHONY: services
 services: ## Report whether the host datastores are reachable
 	@scripts/check-services.sh
+
+# --- database ----------------------------------------------------------------
+
+.PHONY: migrate
+migrate: ## Apply all migrations
+	cd $(API_DIR) && $(abspath $(UV)) run alembic upgrade head
+
+.PHONY: migrate-down
+migrate-down: ## Roll back one migration
+	cd $(API_DIR) && $(abspath $(UV)) run alembic downgrade -1
+
+.PHONY: revision
+revision: ## Autogenerate a migration: make revision m="add x"
+	cd $(API_DIR) && $(abspath $(UV)) run alembic revision --autogenerate -m "$(m)"
+
+.PHONY: seed
+seed: ## Create the demo user, tender sources and starting Skill.MD
+	cd $(API_DIR) && $(abspath $(UV)) run python -m batanat_api.db.seed
+
+.PHONY: reset-db
+reset-db: ## Drop everything and rebuild from migrations, then seed
+	cd $(API_DIR) && $(abspath $(UV)) run alembic downgrade base
+	cd $(API_DIR) && $(abspath $(UV)) run alembic upgrade head
+	$(MAKE) seed
 
 # --- quality -----------------------------------------------------------------
 

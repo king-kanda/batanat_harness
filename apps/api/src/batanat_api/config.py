@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     mongo_db: str = "batanat_raw"
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- security ---
+    # Fernet master key for the token vault. Absent means credentials cannot be
+    # stored; the app still boots so the UI can say so.
+    token_encryption_key: str | None = None
+    session_secret: str | None = None
+
     # --- operational guards (enforced from phase 3 onward) ---
     kill_switch: bool = False
     crm_dry_run: bool = True

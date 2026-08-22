@@ -18,6 +18,7 @@ from batanat_api.core.db_bootstrap import ensure_database
 from batanat_api.core.logging import configure_logging, get_logger
 from batanat_api.core.middleware import RunContextMiddleware
 from batanat_api.core.run_context import get_run_id
+from batanat_api.db.mongo import ensure_indexes
 from batanat_api.health.router import router as health_router
 from batanat_api.version import __version__
 
@@ -41,6 +42,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await ensure_database(settings.database_url)
     except Exception as exc:  # noqa: BLE001
         log.error("db.bootstrap.failed", error=f"{type(exc).__name__}: {exc}")
+
+    # Mongo indexes are idempotent; creating them here means a fresh clone needs
+    # no separate archive setup step.
+    try:
+        await ensure_indexes()
+    except Exception as exc:  # noqa: BLE001
+        log.error("mongo.indexes.failed", error=f"{type(exc).__name__}: {exc}")
+
+    if not settings.token_encryption_key:
+        log.warning(
+            "vault.master_key.missing",
+            detail="TOKEN_ENCRYPTION_KEY is unset; connections cannot be stored.",
+        )
 
     yield
     log.info("api.shutdown", version=__version__)
