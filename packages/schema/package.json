@@ -1,0 +1,14 @@
+{
+  "name": "@batanat/schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared API contracts, generated from the Pydantic models in apps/api. Do not edit by hand — run `make types`.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts.json": "./src/generated/contracts.json"
+  },
+  "files": [
+    "src"
+  ]
+}

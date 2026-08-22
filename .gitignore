@@ -1,0 +1,39 @@
+# Secrets — never commit. Only .env.example belongs in the repo.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+uv.lock.bak
+
+# Node / Bun
+node_modules/
+.output/
+.nitro/
+.tanstack/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Generated contracts ARE committed on purpose: a fresh clone must typecheck
+# the web app without running Python first. CI fails if they are stale.
+
+# Project-local tool venv (uv), created by `make tools`
+.tools/
+
+# Local data volumes
+.docker-data/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

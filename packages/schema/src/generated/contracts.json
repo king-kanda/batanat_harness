@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "ErrorResponse": {
+      "description": "Uniform error envelope.",
+      "properties": {
+        "error": {
+          "title": "Error",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "ErrorResponse",
+      "type": "object"
+    },
+    "HealthResponse": {
+      "description": "Aggregate health of the API and everything it depends on.",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ServiceStatus",
+          "description": "Worst status across all services."
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "app_env": {
+          "title": "App Env",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "services": {
+          "items": {
+            "$ref": "#/$defs/ServiceHealth"
+          },
+          "title": "Services",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "version",
+        "app_env",
+        "checked_at",
+        "services"
+      ],
+      "title": "HealthResponse",
+      "type": "object"
+    },
+    "ServiceHealth": {
+      "description": "Result of probing one backing service.",
+      "properties": {
+        "name": {
+          "description": "Service identifier, e.g. 'postgres'.",
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ServiceStatus"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Round-trip time of the probe, null if it never returned.",
+          "title": "Latency Ms"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable note; the error message when not ok.",
+          "title": "Detail"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "checked_at"
+      ],
+      "title": "ServiceHealth",
+      "type": "object"
+    },
+    "ServiceStatus": {
+      "description": "Health of a single dependency.",
+      "enum": [
+        "ok",
+        "degraded",
+        "down"
+      ],
+      "title": "ServiceStatus",
+      "type": "string"
+    }
+  },
+  "title": "BatanatContracts"
+}
