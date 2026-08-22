@@ -217,9 +217,16 @@ never logged must not depend on every future author remembering it.
   never hardcoded.
 - **WhatsApp utility templates need approval from Meta before launch**, and the number is shared
   across users — senders are mapped to users by a pairing code, not by trusting the phone number.
-- **Scrapers are fragile by nature.** Each tender source is behind an interface with a health check;
-  a failing source degrades to web search, is marked degraded, and is named in the report rather
-  than silently dropped.
+- **Scrapers are fragile by nature, and four of five are currently degraded.** Verified live on
+  2026-08-23: **REREC** serves a server-rendered table and yields ~157 tenders. **KPLC, KenGen,
+  KETRACO and PPIP** render their listings client-side, so the HTML we receive contains no tenders
+  at all. They are marked degraded and covered by the Tavily search fallback, which needs
+  `TAVILY_API_KEY`. Getting them properly would mean a headless browser or each site's private JSON
+  endpoint. Run `make sources` for today's truth rather than trusting this paragraph.
+- **KPLC's robots.txt disallows named AI crawlers** (ClaudeBot, GPTBot and others) while allowing
+  `User-agent: *` with `Content-Signal: use=reference`. Our scraper declares its own identity, is
+  not one of the named crawlers, does not train on the content, and fetches public procurement
+  notices for reference. If you would rather not fetch KPLC at all, disable that source row.
 
 ---
 
@@ -228,10 +235,10 @@ never logged must not depend on every future author remembering it.
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaffold, Compose, contracts, CPU-only guard | **done** |
-| 1 | Data layer: migrations, token vault | not started |
-| 2 | Connections: Gmail, Zoho, WhatsApp pairing | not started |
-| 3 | Agent runtime: capability resolver, limits, kill switch | not started |
-| 4 | Tools: email, tender sources, CRM | not started |
+| 1 | Data layer: migrations, token vault | **done** |
+| 2 | Connections: Gmail, Zoho, WhatsApp pairing | **done** (needs client credentials to verify live) |
+| 3 | Agent runtime: capability resolver, limits, kill switch | **done** |
+| 4 | Tools: email, tender sources, CRM | **partial** — tender pipeline done; email/CRM tools awaiting credentials |
 | 5 | Triggers: Gmail Pub/Sub, tender cron, maintenance | not started |
 | 6 | Validation, approvals, notification dispatch | not started |
 | 7 | Frontend: six routes, chat, report permalinks | not started |

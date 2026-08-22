@@ -75,6 +75,10 @@ reset-db: ## Drop everything and rebuild from migrations, then seed
 	cd $(API_DIR) && $(abspath $(UV)) run alembic upgrade head
 	$(MAKE) seed
 
+.PHONY: sources
+sources: ## Probe every tender source live and report which ones work
+	cd $(API_DIR) && $(abspath $(UV)) run python -m batanat_api.tenders.probe
+
 # --- quality -----------------------------------------------------------------
 
 .PHONY: check
