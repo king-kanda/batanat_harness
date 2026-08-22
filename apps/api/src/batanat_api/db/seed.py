@@ -1,0 +1,164 @@
+"""Seed the database with the demo user, tender sources and a starting Skill.MD.
+
+Idempotent: running it twice changes nothing. Run with
+
+    make seed
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+
+from sqlalchemy import select
+
+from batanat_api.core.logging import configure_logging, get_logger
+from batanat_api.db import enums
+from batanat_api.db.models import SkillVersion, TenderSourceRow, User
+from batanat_api.db.mongo import ensure_indexes
+from batanat_api.db.session import session_scope
+
+log = get_logger(__name__)
+
+DEMO_EMAIL = "martin@batanat.co.ke"
+DEMO_NAME = "Martin"
+
+# The five sources named in the PRD. `adapter` is resolved to a class in phase 4.
+TENDER_SOURCES = [
+    {
+        "key": "ppip",
+        "name": "PPIP — Public Procurement Information Portal",
+        "base_url": "https://tenders.go.ke",
+        "adapter": "PpipSource",
+    },
+    {
+        "key": "kplc",
+        "name": "Kenya Power (KPLC)",
+        "base_url": "https://kplc.co.ke",
+        "adapter": "KplcSource",
+    },
+    {
+        "key": "kengen",
+        "name": "KenGen",
+        "base_url": "https://kengen.co.ke",
+        "adapter": "KengenSource",
+    },
+    {
+        "key": "ketraco",
+        "name": "KETRACO",
+        "base_url": "https://ketraco.co.ke",
+        "adapter": "KetracoSource",
+    },
+    {
+        "key": "rerec",
+        "name": "REREC — Rural Electrification and Renewable Energy Corporation",
+        "base_url": "https://rerec.co.ke",
+        "adapter": "RerecSource",
+    },
+    {
+        "key": "websearch",
+        "name": "Web search fallback (Tavily)",
+        "base_url": "https://tavily.com",
+        "adapter": "WebSearchSource",
+    },
+]
+
+# Deliberately criteria-only. Every security rule lives in code, so nothing
+# written here — or typed into the Rules editor later — can widen the agent's
+# capabilities. See TODO.md: this is placeholder text until the client supplies
+# the real thing.
+DEFAULT_SKILL_MD = """\
+# Batanat — Operating Criteria
+
+## What we do
+Batanat works in Kenya's energy sector: solar PV, transmission and distribution
+infrastructure, metering, and related EPC and consultancy work.
+
+## What counts as an opportunity in an email
+Treat a message as an **opportunity** when it involves any of:
+- an invitation to tender, quote, or express interest
+- a request for a proposal, pricing, or capability statement
+- a prospective client describing a project or requirement
+- a partner or supplier raising a specific, live piece of work
+
+Treat as **client** when it concerns an engagement already under way, as
+**supplier** when it is inbound from a vendor, and as **administrative** for
+invoices, statements, and scheduling.
+
+## Priority
+- **high** — a deadline within 14 days, a named procuring entity, or a direct
+  request addressed to Martin. These interrupt: they fire a WhatsApp alert.
+- **medium** — relevant but no immediate deadline. Rolls into the next digest.
+- **low** — background awareness only.
+
+## What counts as a relevant tender
+Relevant when the scope touches solar, transmission, distribution, metering,
+electrification, energy audit, or EPC works — and the closing date has not
+passed. Prefer KPLC, KenGen, KETRACO, REREC and county energy departments.
+
+Not relevant: supply of unrelated goods, general construction with no energy
+component, and anything already known to be closed.
+
+## Tone for notifications
+Short and factual. Lead with the deadline and the procuring entity. Never
+speculate about value if the source does not state one.
+"""
+
+
+async def seed() -> None:
+    async with session_scope() as session:
+        user = (
+            (await session.execute(select(User).where(User.email == DEMO_EMAIL))).scalars().first()
+        )
+
+        if user is None:
+            user = User(email=DEMO_EMAIL, name=DEMO_NAME, timezone="Africa/Nairobi")
+            session.add(user)
+            await session.flush()
+            log.info("seed.user.created", email=DEMO_EMAIL, user_id=str(user.id))
+        else:
+            log.info("seed.user.exists", email=DEMO_EMAIL, user_id=str(user.id))
+
+        existing_keys = set((await session.execute(select(TenderSourceRow.key))).scalars().all())
+        for source in TENDER_SOURCES:
+            if source["key"] in existing_keys:
+                continue
+            session.add(TenderSourceRow(**source, health=enums.SourceHealth.ok))
+            log.info("seed.source.created", key=source["key"])
+
+        active_skill = (
+            (
+                await session.execute(
+                    select(SkillVersion).where(
+                        SkillVersion.user_id == user.id, SkillVersion.is_active.is_(True)
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+        if active_skill is None:
+            session.add(
+                SkillVersion(
+                    user_id=user.id,
+                    version=1,
+                    content=DEFAULT_SKILL_MD,
+                    checksum=hashlib.sha256(DEFAULT_SKILL_MD.encode()).hexdigest(),
+                    is_active=True,
+                    created_by="seed",
+                    notes="Placeholder criteria — replace with the client's own.",
+                )
+            )
+            log.info("seed.skill.created", version=1)
+
+    await ensure_indexes()
+
+
+def main() -> None:
+    configure_logging("info")
+    asyncio.run(seed())
+
+
+if __name__ == "__main__":
+    main()

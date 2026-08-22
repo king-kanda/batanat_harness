@@ -16,6 +16,9 @@ dependencies = [
     "redis>=5.2",
     "pymongo>=4.13",
     "qdrant-client>=1.12",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.14",
+    "cryptography>=44.0",
 ]
 
 # NOTE: this project is CPU-only. Never add torch, sentence-transformers,
@@ -39,6 +42,11 @@ packages = ["src/batanat_api"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# The test database is built once per session, so the engine, the fixtures and
+# the tests must all share one event loop — asyncpg connections cannot cross
+# loops.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 addopts = "-q"
 
 [tool.ruff]
