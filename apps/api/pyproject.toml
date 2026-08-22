@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.14",
     "cryptography>=44.0",
+    "segno>=1.6.6",
 ]
 
 # NOTE: this project is CPU-only. Never add torch, sentence-transformers,

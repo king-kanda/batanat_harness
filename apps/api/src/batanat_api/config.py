@@ -48,6 +48,22 @@ class Settings(BaseSettings):
     token_encryption_key: str | None = None
     session_secret: str | None = None
 
+    # --- providers (phase 2) ---
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str = "http://localhost:8000/api/connections/gmail/callback"
+
+    zoho_client_id: str | None = None
+    zoho_client_secret: str | None = None
+    zoho_redirect_uri: str = "http://localhost:8000/api/connections/zoho/callback"
+    zoho_accounts_url: str = "https://accounts.zoho.com"
+
+    whatsapp_phone_number_id: str | None = None
+    whatsapp_business_number: str | None = None
+    whatsapp_access_token: str | None = None
+    whatsapp_app_secret: str | None = None
+    whatsapp_verify_token: str | None = None
+
     # --- operational guards (enforced from phase 3 onward) ---
     kill_switch: bool = False
     crm_dry_run: bool = True

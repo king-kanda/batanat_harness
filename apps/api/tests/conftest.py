@@ -71,6 +71,30 @@ def _encryption_key(monkeypatch: pytest.MonkeyPatch) -> str:
     return key
 
 
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean_redis_keys():
+    """Clear this project's Redis keys between tests.
+
+    Rate-limit counters and OAuth states live in Redis, which survives the test
+    process — without this, a rate-limit test poisons the next *run*, not just
+    the next test. Only our own prefixes are deleted: this Redis instance is
+    shared with other projects on the dev machine, so FLUSHDB is not an option.
+    """
+    from redis.asyncio import from_url
+
+    client = from_url(get_settings().redis_url)
+    try:
+        for prefix in ("pairing:*", "oauth:state:*"):
+            keys = [key async for key in client.scan_iter(match=prefix)]
+            if keys:
+                await client.delete(*keys)
+    except Exception:  # noqa: BLE001 — Redis absent is not a test failure here
+        pass
+    finally:
+        await client.aclose()
+    yield
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def db_engine(postgres_available: bool):
     """Create the test database once for the whole session, drop it at the end.
