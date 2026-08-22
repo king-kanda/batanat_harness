@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from batanat_api.config import get_settings
+from batanat_api.connections.router import router as connections_router
+from batanat_api.connections.service import register_refreshers
 from batanat_api.contracts.health import ErrorResponse
 from batanat_api.core.db_bootstrap import ensure_database
 from batanat_api.core.logging import configure_logging, get_logger
@@ -21,6 +23,7 @@ from batanat_api.core.run_context import get_run_id
 from batanat_api.db.mongo import ensure_indexes
 from batanat_api.health.router import router as health_router
 from batanat_api.version import __version__
+from batanat_api.webhooks.whatsapp import router as whatsapp_webhook_router
 
 log = get_logger(__name__)
 
@@ -49,6 +52,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await ensure_indexes()
     except Exception as exc:  # noqa: BLE001
         log.error("mongo.indexes.failed", error=f"{type(exc).__name__}: {exc}")
+
+    # Teach the token vault how to refresh each provider's tokens.
+    register_refreshers()
 
     if not settings.token_encryption_key:
         log.warning(
@@ -83,6 +89,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(connections_router)
+    app.include_router(whatsapp_webhook_router)
 
     @app.exception_handler(Exception)
     async def unhandled(_request: Request, exc: Exception) -> JSONResponse:

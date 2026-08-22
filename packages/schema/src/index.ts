@@ -7,8 +7,17 @@
  */
 
 export type {
+  AuthorizationUrl,
+  ConnectionStatus,
+  ConnectionsPage,
+  ConnectionView,
+  DisconnectResult,
   ErrorResponse,
   HealthResponse,
+  PairingCodeView,
+  Provider,
+  ProviderStatus,
   ServiceHealth,
   ServiceStatus,
+  WhatsAppLinkView,
 } from './generated/contracts'

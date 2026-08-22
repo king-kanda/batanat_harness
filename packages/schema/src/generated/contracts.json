@@ -1,5 +1,229 @@
 {
   "$defs": {
+    "AuthorizationUrl": {
+      "properties": {
+        "authorization_url": {
+          "title": "Authorization Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorization_url"
+      ],
+      "title": "AuthorizationUrl",
+      "type": "object"
+    },
+    "ConnectionStatus": {
+      "enum": [
+        "connected",
+        "expired",
+        "error",
+        "revoked"
+      ],
+      "title": "ConnectionStatus",
+      "type": "string"
+    },
+    "ConnectionView": {
+      "description": "A connected provider, as shown on the Settings page.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "provider": {
+          "$ref": "#/$defs/Provider"
+        },
+        "external_account": {
+          "description": "Gmail address, Zoho org id, or WhatsApp number id.",
+          "title": "External Account",
+          "type": "string"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "status": {
+          "$ref": "#/$defs/ConnectionStatus"
+        },
+        "scopes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scopes",
+          "type": "array"
+        },
+        "access_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access Expires At"
+        },
+        "expires_in_hours": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Negative once the access token has already expired.",
+          "title": "Expires In Hours"
+        },
+        "needs_reconnect": {
+          "default": false,
+          "description": "True when only the user can restore this connection.",
+          "title": "Needs Reconnect",
+          "type": "boolean"
+        },
+        "api_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Zoho: the data-centre API host returned at authorisation.",
+          "title": "Api Domain"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Zoho: human-readable data centre.",
+          "title": "Region"
+        },
+        "last_ok_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Ok At"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "connected_at": {
+          "format": "date-time",
+          "title": "Connected At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "external_account",
+        "status",
+        "connected_at"
+      ],
+      "title": "ConnectionView",
+      "type": "object"
+    },
+    "ConnectionsPage": {
+      "description": "Everything the Settings \u2192 Connections screen needs, in one request.",
+      "properties": {
+        "connections": {
+          "items": {
+            "$ref": "#/$defs/ConnectionView"
+          },
+          "title": "Connections",
+          "type": "array"
+        },
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ProviderStatus"
+          },
+          "title": "Providers",
+          "type": "array"
+        },
+        "whatsapp_links": {
+          "items": {
+            "$ref": "#/$defs/WhatsAppLinkView"
+          },
+          "title": "Whatsapp Links",
+          "type": "array"
+        },
+        "whatsapp_business_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Whatsapp Business Number"
+        }
+      },
+      "required": [
+        "connections",
+        "providers",
+        "whatsapp_links"
+      ],
+      "title": "ConnectionsPage",
+      "type": "object"
+    },
+    "DisconnectResult": {
+      "properties": {
+        "disconnected": {
+          "title": "Disconnected",
+          "type": "boolean"
+        },
+        "upstream_revoked": {
+          "description": "False when the provider offers no revocation endpoint, or refused.",
+          "title": "Upstream Revoked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "disconnected",
+        "upstream_revoked"
+      ],
+      "title": "DisconnectResult",
+      "type": "object"
+    },
     "ErrorResponse": {
       "description": "Uniform error envelope.",
       "properties": {
@@ -88,6 +312,84 @@
       "title": "HealthResponse",
       "type": "object"
     },
+    "PairingCodeView": {
+      "description": "A freshly issued WhatsApp pairing code.",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "business_number": {
+          "title": "Business Number",
+          "type": "string"
+        },
+        "message": {
+          "description": "Exactly what the user should send, e.g. 'LINK ABCD2345'.",
+          "title": "Message",
+          "type": "string"
+        },
+        "wa_me_url": {
+          "description": "Deep link that opens WhatsApp with the message prefilled.",
+          "title": "Wa Me Url",
+          "type": "string"
+        },
+        "qr_svg_url": {
+          "description": "Endpoint serving the same deep link as a QR code.",
+          "title": "Qr Svg Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "expires_at",
+        "business_number",
+        "message",
+        "wa_me_url",
+        "qr_svg_url"
+      ],
+      "title": "PairingCodeView",
+      "type": "object"
+    },
+    "Provider": {
+      "enum": [
+        "gmail",
+        "zoho",
+        "whatsapp"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "ProviderStatus": {
+      "description": "Whether a provider can be connected at all, given the environment.",
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/Provider"
+        },
+        "configured": {
+          "description": "False when its credentials are missing from .env.",
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "scopes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scopes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "provider",
+        "configured"
+      ],
+      "title": "ProviderStatus",
+      "type": "object"
+    },
     "ServiceHealth": {
       "description": "Result of probing one backing service.",
       "properties": {
@@ -148,6 +450,44 @@
       ],
       "title": "ServiceStatus",
       "type": "string"
+    },
+    "WhatsAppLinkView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "phone_e164": {
+          "title": "Phone E164",
+          "type": "string"
+        },
+        "linked_at": {
+          "format": "date-time",
+          "title": "Linked At",
+          "type": "string"
+        },
+        "last_seen_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen At"
+        }
+      },
+      "required": [
+        "id",
+        "phone_e164",
+        "linked_at"
+      ],
+      "title": "WhatsAppLinkView",
+      "type": "object"
     }
   },
   "title": "BatanatContracts"
