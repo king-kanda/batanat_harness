@@ -1,0 +1,17 @@
+{
+  "name": "batanat-harness",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "cd apps/web && bun run dev",
+    "build": "cd apps/web && bun run build",
+    "typecheck": "cd apps/web && bun run typecheck"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}

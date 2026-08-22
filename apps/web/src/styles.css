@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+/* Dark-first, operational. This is a console, not a landing page:
+   tight spacing, tabular numerals, muted chrome, colour reserved for status. */
+
+@theme {
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --color-surface: oklch(0.17 0.008 260);
+  --color-surface-raised: oklch(0.21 0.009 260);
+  --color-border-subtle: oklch(0.29 0.01 260);
+  --color-ink: oklch(0.95 0.005 260);
+  --color-ink-muted: oklch(0.68 0.012 260);
+  --color-ink-faint: oklch(0.53 0.012 260);
+
+  --color-status-ok: oklch(0.74 0.16 155);
+  --color-status-degraded: oklch(0.79 0.15 78);
+  --color-status-down: oklch(0.66 0.2 22);
+  --color-accent: oklch(0.72 0.13 245);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+  }
+
+  /* Numbers in tables and metrics should not jitter as they update. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
