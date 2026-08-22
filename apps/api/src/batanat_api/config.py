@@ -64,6 +64,18 @@ class Settings(BaseSettings):
     whatsapp_app_secret: str | None = None
     whatsapp_verify_token: str | None = None
 
+    # --- model + search providers (phase 3, 4) ---
+    anthropic_api_key: str | None = None
+    agent_model: str = "claude-opus-5"
+    tavily_api_key: str | None = None
+
+    # --- agent limits (phase 3) ---
+    agent_max_iterations: int = 12
+    agent_token_budget: int = 120_000
+    agent_wall_clock_timeout_s: float = 180.0
+    tool_circuit_breaker_threshold: int = 3
+    tool_circuit_breaker_cooldown_s: int = 900
+
     # --- operational guards (enforced from phase 3 onward) ---
     kill_switch: bool = False
     crm_dry_run: bool = True

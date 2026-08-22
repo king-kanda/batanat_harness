@@ -12,6 +12,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from batanat_api.agent.capabilities import audit_policy, validate_policy
+from batanat_api.agent.tools import placeholders  # noqa: F401 — registers tools
 from batanat_api.config import get_settings
 from batanat_api.connections.router import router as connections_router
 from batanat_api.connections.service import register_refreshers
@@ -55,6 +57,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Teach the token vault how to refresh each provider's tokens.
     register_refreshers()
+
+    # Fail fast if the capability table and the tool registry disagree. A typo
+    # here would mean a run silently getting the wrong tools.
+    validate_policy()
+    log.info("agent.policy.validated", triggers=len(audit_policy()))
 
     if not settings.token_encryption_key:
         log.warning(
