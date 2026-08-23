@@ -96,6 +96,28 @@ class GmailClient:
         data = await self._request("GET", f"/messages/{message_id}", params={"format": "full"})
         return parse_message(data)
 
+    async def get_thread(self, thread_id: str, *, limit: int = 25) -> list[GmailMessage]:
+        """Every message in a thread, oldest first.
+
+        `gmail.readonly` covers this — it is the narrowest scope that returns
+        message bodies. `gmail.metadata` would give headers only, and anything
+        broader adds write access we deliberately do not want.
+
+        Capped because a long reply chain can run to hundreds of messages, and
+        the model only needs the shape of the conversation. The oldest message
+        sets the context and the newest carries the ask, so when a thread is
+        over the cap we keep both ends and drop the middle.
+        """
+        data = await self._request("GET", f"/threads/{thread_id}", params={"format": "full"})
+        raw_messages = data.get("messages", [])
+
+        if len(raw_messages) > limit:
+            keep_head = limit // 2
+            keep_tail = limit - keep_head
+            raw_messages = raw_messages[:keep_head] + raw_messages[-keep_tail:]
+
+        return [parse_message(message) for message in raw_messages]
+
     async def list_history(self, start_history_id: int) -> tuple[list[str], int | None]:
         """Message ids added since `start_history_id`, and the new cursor.
 

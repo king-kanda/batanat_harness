@@ -34,7 +34,7 @@ from batanat_api.db.enums import TriggerType, TrustLevel
 EXPECTED = {
     TriggerType.gmail_push: (
         TrustLevel.untrusted,
-        {"read_email", "classify_email", "propose_crm_entry"},
+        {"read_email", "read_thread", "classify_email", "propose_crm_entry"},
     ),
     TriggerType.cron_tender: (
         TrustLevel.untrusted,
@@ -44,6 +44,7 @@ EXPECTED = {
         TrustLevel.trusted,
         {
             "read_email",
+            "read_thread",
             "classify_email",
             "scrape_tenders",
             "web_search",
@@ -56,6 +57,7 @@ EXPECTED = {
         TrustLevel.trusted,
         {
             "read_email",
+            "read_thread",
             "classify_email",
             "scrape_tenders",
             "web_search",
@@ -90,6 +92,7 @@ def test_a_gmail_push_run_has_no_commit_tool_in_its_schema() -> None:
     # And the tools it *does* have are the read/propose set.
     assert {s["name"] for s in schemas} == {
         "read_email",
+        "read_thread",
         "classify_email",
         "propose_crm_entry",
     }

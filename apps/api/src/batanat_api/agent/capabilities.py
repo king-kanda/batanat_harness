@@ -49,7 +49,7 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
         # An email body is attacker-controlled text. Read and propose only.
         TriggerType.gmail_push: Capability(
             trust=TrustLevel.untrusted,
-            tools=("read_email", "classify_email", "propose_crm_entry"),
+            tools=("read_email", "read_thread", "classify_email", "propose_crm_entry"),
             payload_is_untrusted=True,
         ),
         # Scraped HTML is attacker-controlled text, for the same reason.
@@ -63,6 +63,7 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
             trust=TrustLevel.trusted,
             tools=(
                 "read_email",
+                "read_thread",
                 "classify_email",
                 "scrape_tenders",
                 "web_search",
@@ -78,6 +79,7 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
             trust=TrustLevel.trusted,
             tools=(
                 "read_email",
+                "read_thread",
                 "classify_email",
                 "scrape_tenders",
                 "web_search",

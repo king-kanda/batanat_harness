@@ -111,9 +111,11 @@ async def run_classification(
         trigger=enums.TriggerType.gmail_push,
         payload=payload,
         instruction=(
-            "Classify each email using classify_email. Where an email is a genuine "
-            "business opportunity worth recording, propose a CRM entry. Do not propose "
-            "anything for routine correspondence."
+            "Classify each email using classify_email. Where a single message is not "
+            "enough to judge — a reply with no context, a deadline mentioned earlier — "
+            "call read_thread first to see the whole conversation. Where an email is a "
+            "genuine business opportunity worth recording, propose a CRM entry. Do not "
+            "propose anything for routine correspondence."
         ),
         skill_content=skill.content if skill else None,
         skill_version_id=skill.id if skill else None,
