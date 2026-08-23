@@ -195,7 +195,7 @@ function KnowledgeBase() {
               <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-sm font-medium">{doc.filename}</span>
+                  <span className="min-w-0 truncate text-sm font-medium">{doc.filename}</span>
                   <StatusBadge tone={doc.trust_tag === 'user_asserted' ? 'ok' : 'degraded'}>
                     {humaniseShort(doc.trust_tag)}
                   </StatusBadge>

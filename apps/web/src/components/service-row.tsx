@@ -32,7 +32,10 @@ export function ServiceRow({ service }: { service: ServiceHealth }) {
       <span className="text-muted-foreground/80 tabular w-20 shrink-0 text-right text-xs">
         {service.latency_ms == null ? '—' : `${service.latency_ms.toFixed(0)} ms`}
       </span>
-      <span className="text-muted-foreground truncate text-xs" title={service.detail ?? undefined}>
+      <span
+        className="text-muted-foreground min-w-0 flex-1 truncate text-xs"
+        title={service.detail ?? undefined}
+      >
         {service.detail ?? '—'}
       </span>
     </div>

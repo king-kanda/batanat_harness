@@ -93,6 +93,12 @@ function Vote({
   )
 }
 
+function priorityTone(priority: string): 'down' | 'degraded' | 'neutral' {
+  if (priority === 'high') return 'down'
+  if (priority === 'medium') return 'degraded'
+  return 'neutral'
+}
+
 function Emails() {
   const emails = useQuery({ queryKey: ['emails'], queryFn: api.results.emails })
   const vote = useVote('email')
@@ -120,23 +126,33 @@ function Emails() {
       )}
 
       {!!emails.data?.length && (
-        <Table>
-          {/* Headers exist so the badges explain themselves: without them,
-              "opportunity / high / 94%" is three unlabelled values. */}
+        <Table className="table-fixed">
+          {/* `table-fixed`: under auto layout a `w-*` on a column is a
+              suggestion and long content wins, which is how tender titles ended
+              up rendering over the Closing column. Fixed layout makes the
+              widths binding, gives the leftover to the one unsized column, and
+              wraps rather than overflowing.
+
+              Headers exist so the badges explain themselves: without them,
+              "opportunity / high / 94%" is three unlabelled values.
+
+              Below `md` the graded columns collapse into the subject cell
+              rather than surviving as a table you have to drag sideways to
+              read. Same data, stacked. */}
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[8.5rem]">Category</TableHead>
-              <TableHead className="w-[6rem]">Priority</TableHead>
-              <TableHead className="w-[6.5rem]">Confidence</TableHead>
+              <TableHead className="hidden w-[8.5rem] md:table-cell">Category</TableHead>
+              <TableHead className="hidden w-[6rem] md:table-cell">Priority</TableHead>
+              <TableHead className="hidden w-[6.5rem] lg:table-cell">Confidence</TableHead>
               <TableHead>Subject &amp; sender</TableHead>
-              <TableHead className="w-[7rem]">Received</TableHead>
+              <TableHead className="hidden w-[7rem] lg:table-cell">Received</TableHead>
               <TableHead className="w-[5.5rem] text-right">Correct?</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {emails.data.map((email) => (
               <TableRow key={email.id} className="align-top">
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   {email.category ? (
                     <StatusBadge tone={CATEGORY_TONE[email.category] ?? 'neutral'}>
                       {humanise(email.category)}
@@ -146,17 +162,9 @@ function Emails() {
                   )}
                 </TableCell>
 
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   {email.priority ? (
-                    <StatusBadge
-                      tone={
-                        email.priority === 'high'
-                          ? 'down'
-                          : email.priority === 'medium'
-                            ? 'degraded'
-                            : 'neutral'
-                      }
-                    >
+                    <StatusBadge tone={priorityTone(email.priority)}>
                       {humanise(email.priority)}
                     </StatusBadge>
                   ) : (
@@ -164,24 +172,53 @@ function Emails() {
                   )}
                 </TableCell>
 
-                <TableCell className="text-muted-foreground tabular text-xs">
+                <TableCell className="text-muted-foreground tabular hidden text-xs lg:table-cell">
                   {email.confidence == null ? '—' : `${(email.confidence * 100).toFixed(0)}%`}
                 </TableCell>
 
-                <TableCell className="max-w-md">
-                  <div className="text-sm font-medium">{email.subject ?? '(no subject)'}</div>
-                  <div className="text-muted-foreground text-xs">
-                    {email.from_name ?? email.from_address}
+                <TableCell className="whitespace-normal">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium wrap-anywhere">
+                      {email.subject ?? '(no subject)'}
+                    </div>
+                    <div className="text-muted-foreground text-xs wrap-anywhere">
+                      {email.from_name ?? email.from_address}
+                    </div>
+
+                    {/* What the hidden columns were carrying. */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 md:hidden">
+                      {email.category && (
+                        <StatusBadge tone={CATEGORY_TONE[email.category] ?? 'neutral'}>
+                          {humanise(email.category)}
+                        </StatusBadge>
+                      )}
+                      {email.priority && (
+                        <StatusBadge tone={priorityTone(email.priority)}>
+                          {humanise(email.priority)}
+                        </StatusBadge>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground tabular mt-1 flex flex-wrap gap-x-3 text-[11px] lg:hidden">
+                      {email.confidence != null && (
+                        <span>{(email.confidence * 100).toFixed(0)}% confident</span>
+                      )}
+                      {email.received_at && (
+                        <span>{new Date(email.received_at).toLocaleDateString()}</span>
+                      )}
+                    </div>
+
+                    {email.reasoning && (
+                      <p className="text-muted-foreground mt-1.5 text-xs break-words italic">
+                        {email.reasoning}
+                      </p>
+                    )}
+                    {email.suggested_action && (
+                      <p className="mt-1 text-xs break-words">→ {email.suggested_action}</p>
+                    )}
                   </div>
-                  {email.reasoning && (
-                    <p className="text-muted-foreground mt-1.5 text-xs italic">{email.reasoning}</p>
-                  )}
-                  {email.suggested_action && (
-                    <p className="mt-1 text-xs">→ {email.suggested_action}</p>
-                  )}
                 </TableCell>
 
-                <TableCell className="text-muted-foreground tabular text-xs whitespace-nowrap">
+                <TableCell className="text-muted-foreground tabular hidden text-xs whitespace-nowrap lg:table-cell">
                   {email.received_at ? new Date(email.received_at).toLocaleDateString() : '—'}
                 </TableCell>
 
@@ -238,14 +275,14 @@ function Tenders() {
       )}
 
       {!!tenders.data?.length && (
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[10rem]">Reference</TableHead>
-              <TableHead className="w-[5.5rem]">Source</TableHead>
+              <TableHead className="hidden w-[10rem] lg:table-cell">Reference</TableHead>
+              <TableHead className="hidden w-[5.5rem] md:table-cell">Source</TableHead>
               <TableHead>Title &amp; procuring entity</TableHead>
               <TableHead className="w-[8.5rem]">Closing</TableHead>
-              <TableHead className="w-[8rem]">Value</TableHead>
+              <TableHead className="hidden w-[8rem] md:table-cell">Value</TableHead>
               <TableHead className="w-[5.5rem] text-right">Relevant?</TableHead>
             </TableRow>
           </TableHeader>
@@ -257,26 +294,45 @@ function Tenders() {
 
               return (
                 <TableRow key={tender.id} className="align-top">
-                  <TableCell className="text-muted-foreground font-mono text-xs break-all">
+                  <TableCell className="text-muted-foreground hidden font-mono text-xs break-all whitespace-normal lg:table-cell">
                     {tender.reference_no ?? '—'}
                   </TableCell>
 
-                  <TableCell className="text-muted-foreground text-xs">{tender.source}</TableCell>
-
-                  <TableCell className="max-w-md">
-                    <a
-                      href={tender.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:text-primary inline-flex items-start gap-1 text-sm font-medium"
-                    >
-                      {tender.title}
-                      <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden />
-                    </a>
-                    <div className="text-muted-foreground text-xs">{tender.entity}</div>
+                  <TableCell className="text-muted-foreground hidden text-xs md:table-cell">
+                    {tender.source}
                   </TableCell>
 
-                  <TableCell className="text-xs whitespace-nowrap">
+                  <TableCell className="whitespace-normal">
+                    <div className="min-w-0">
+                      <a
+                        href={tender.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:text-primary inline-flex items-start gap-1 text-sm font-medium break-words"
+                      >
+                        <span className="min-w-0 wrap-anywhere">{tender.title}</span>
+                        <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden />
+                      </a>
+                      <div className="text-muted-foreground text-xs wrap-anywhere">
+                        {tender.entity}
+                      </div>
+
+                      {/* What the hidden columns were carrying. */}
+                      <div className="text-muted-foreground tabular mt-1 flex flex-wrap gap-x-3 text-[11px]">
+                        <span className="font-mono break-all lg:hidden">
+                          {tender.reference_no ?? '—'}
+                        </span>
+                        <span className="md:hidden">{tender.source}</span>
+                        {tender.estimated_value != null && tender.currency && (
+                          <span className="md:hidden">
+                            {tender.currency} {tender.estimated_value.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-xs whitespace-normal">
                     {tender.closing_date ? (
                       <div className="space-y-1">
                         <div className="tabular text-muted-foreground">
@@ -295,7 +351,7 @@ function Tenders() {
                     )}
                   </TableCell>
 
-                  <TableCell className="tabular text-xs whitespace-nowrap">
+                  <TableCell className="tabular hidden text-xs whitespace-nowrap md:table-cell">
                     {tender.estimated_value != null && tender.currency ? (
                       `${tender.currency} ${tender.estimated_value.toLocaleString()}`
                     ) : (

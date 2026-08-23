@@ -117,7 +117,8 @@ export function ConnectionCard({
               <summary className="text-muted-foreground/80 cursor-pointer text-[11px] hover:underline">
                 {scopes.length} scopes requested
               </summary>
-              <ul className="text-muted-foreground/80 mt-1 space-y-0.5 font-mono text-[10px]">
+              {/* Scope URLs are long and have nothing to break on. */}
+              <ul className="text-muted-foreground/80 mt-1 space-y-0.5 font-mono text-[10px] break-all">
                 {scopes.map((scope) => (
                   <li key={scope}>{scope}</li>
                 ))}

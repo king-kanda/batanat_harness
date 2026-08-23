@@ -186,13 +186,13 @@ function Rules() {
             <div
               key={version.id}
               className={cn(
-                'border-border flex items-baseline gap-3 border-b px-4 py-2 text-xs last:border-b-0',
+                'border-border flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-2 text-xs last:border-b-0',
                 version.is_active && 'bg-muted',
               )}
             >
               <span className="text-foreground w-10 shrink-0 font-mono">v{version.version}</span>
               {version.is_active && <StatusBadge tone="ok">active</StatusBadge>}
-              <span className="text-muted-foreground/80 truncate">
+              <span className="text-muted-foreground/80 min-w-0 flex-1 truncate">
                 {version.notes ?? `by ${version.created_by ?? 'unknown'}`}
               </span>
               <span className="text-muted-foreground/80 tabular ml-auto shrink-0">

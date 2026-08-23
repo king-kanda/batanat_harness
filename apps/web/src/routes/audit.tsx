@@ -102,31 +102,57 @@ function RunRow({ run }: { run: RunView }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="hover:bg-muted flex w-full items-baseline gap-2 px-4 py-2.5 text-left text-xs"
+        className="hover:bg-muted flex w-full items-start gap-2 px-4 py-2.5 text-left text-xs"
       >
         {open ? (
-          <ChevronDown className="text-muted-foreground/80 size-3.5 shrink-0 translate-y-0.5" aria-hidden />
+          <ChevronDown
+            className="text-muted-foreground/80 mt-0.5 size-3.5 shrink-0"
+            aria-hidden
+          />
         ) : (
-          <ChevronRight className="text-muted-foreground/80 size-3.5 shrink-0 translate-y-0.5" aria-hidden />
+          <ChevronRight
+            className="text-muted-foreground/80 mt-0.5 size-3.5 shrink-0"
+            aria-hidden
+          />
         )}
-        <span className="w-40 shrink-0 text-xs font-medium">{humanise(run.trigger_type)}</span>
-        <StatusBadge
-          tone={
-            run.status === 'succeeded' ? 'ok' : run.status === 'limit_exceeded' ? 'degraded' : 'down'
-          }
-        >
-          {humanise(run.status)}
-        </StatusBadge>
-        <span className="text-muted-foreground/80 tabular w-16 shrink-0 text-right">
-          {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : '—'}
-        </span>
-        <span className="text-muted-foreground/80 tabular w-20 shrink-0 text-right">
-          {(run.token_cost ?? 0).toLocaleString()} tok
-        </span>
-        <span className="text-muted-foreground truncate">{run.summary ?? run.error ?? ''}</span>
-        <span className="text-muted-foreground/80 tabular ml-auto shrink-0">
-          {new Date(run.started_at).toLocaleString()}
-        </span>
+
+        {/* One aligned line on desktop, because a log is read by scanning
+            columns. Stacked below `md`, because six fixed-width cells on a
+            phone is not a log, it is a horizontal scrollbar. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1 md:flex-row md:items-baseline md:gap-2">
+          <span className="shrink-0 font-medium md:w-40">{humanise(run.trigger_type)}</span>
+
+          <div className="flex items-baseline gap-2 md:contents">
+            <StatusBadge
+              tone={
+                run.status === 'succeeded'
+                  ? 'ok'
+                  : run.status === 'limit_exceeded'
+                    ? 'degraded'
+                    : 'down'
+              }
+            >
+              {humanise(run.status)}
+            </StatusBadge>
+            <span className="text-muted-foreground/80 tabular shrink-0 md:w-16 md:text-right">
+              {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : '—'}
+            </span>
+            <span className="text-muted-foreground/80 tabular shrink-0 md:w-20 md:text-right">
+              {(run.token_cost ?? 0).toLocaleString()} tok
+            </span>
+          </div>
+
+          {/* min-w-0 is what lets this truncate instead of collapsing to
+              nothing — a flex item will not shrink below its content without
+              it, and `truncate` then has no width to work with. */}
+          <span className="text-muted-foreground min-w-0 flex-1 truncate">
+            {run.summary ?? run.error ?? ''}
+          </span>
+
+          <span className="text-muted-foreground/80 tabular shrink-0 md:ml-auto">
+            {new Date(run.started_at).toLocaleString()}
+          </span>
+        </div>
       </button>
 
       {open && (
@@ -188,13 +214,13 @@ function ToolCall({ call }: { call: ToolCallView }) {
         <StatusBadge tone={call.error ? 'down' : 'ok'}>{call.error ? 'failed' : 'ok'}</StatusBadge>
         <span className="text-muted-foreground/80 tabular ml-auto">{call.duration_ms ?? 0} ms</span>
       </div>
-      <pre className="text-muted-foreground mt-1.5 overflow-x-auto font-mono text-[10px] whitespace-pre-wrap">
+      <pre className="text-muted-foreground mt-1.5 overflow-x-auto font-mono text-[10px] whitespace-pre-wrap wrap-anywhere">
         {JSON.stringify(call.arguments, null, 2)}
       </pre>
       {call.error ? (
-        <p className="text-status-down mt-1 font-mono text-[10px]">{call.error}</p>
+        <p className="text-status-down mt-1 font-mono text-[10px] wrap-anywhere">{call.error}</p>
       ) : (
-        <pre className="text-muted-foreground/80 mt-1 max-h-40 overflow-auto font-mono text-[10px] whitespace-pre-wrap">
+        <pre className="text-muted-foreground/80 mt-1 max-h-40 overflow-auto font-mono text-[10px] whitespace-pre-wrap wrap-anywhere">
           {JSON.stringify(call.result, null, 2)}
         </pre>
       )}

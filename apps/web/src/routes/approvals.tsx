@@ -78,7 +78,7 @@ function Approvals() {
             {decided.map((approval) => (
               <div
                 key={approval.id}
-                className="border-border flex items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
+                className="border-border flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-4 py-2 text-xs last:border-b-0"
               >
                 <span className="text-foreground w-20 shrink-0 font-mono">{approval.module}</span>
                 <StatusBadge
@@ -92,7 +92,7 @@ function Approvals() {
                 >
                   {humanise(approval.status)}
                 </StatusBadge>
-                <span className="text-muted-foreground/80 truncate">{approval.rationale}</span>
+                <span className="text-muted-foreground/80 min-w-0 flex-1 truncate">{approval.rationale}</span>
                 <span className="text-muted-foreground/80 tabular ml-auto shrink-0">
                   {new Date(approval.created_at).toLocaleDateString()}
                 </span>
