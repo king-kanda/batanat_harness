@@ -77,10 +77,10 @@ class PairingCodeView(BaseModel):
 
     code: str
     expires_at: datetime
-    business_number: str
+    business_number: str = Field(description="The shared number the user must text.")
+    phone_e164: str = Field(description="The number this code was issued for, normalised.")
     message: str = Field(description="Exactly what the user should send, e.g. 'LINK ABCD2345'.")
     wa_me_url: str = Field(description="Deep link that opens WhatsApp with the message prefilled.")
-    qr_svg_url: str = Field(description="Endpoint serving the same deep link as a QR code.")
 
 
 class DisconnectResult(BaseModel):

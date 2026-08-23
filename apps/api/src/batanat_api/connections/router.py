@@ -11,8 +11,7 @@ from __future__ import annotations
 import uuid
 from urllib.parse import urlencode
 
-import segno
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Body, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 
 from batanat_api.config import get_settings
@@ -134,7 +133,16 @@ async def disconnect(
 
 
 @router.post("/whatsapp/pairing-code", response_model=PairingCodeView, summary="Issue a code")
-async def create_pairing_code(session: SessionDep, user: CurrentUser) -> PairingCodeView:
+async def create_pairing_code(
+    session: SessionDep,
+    user: CurrentUser,
+    phone: str = Body(embed=True, description="The number to link, as the user typed it."),
+) -> PairingCodeView:
+    """Issue a pairing code for one specific number.
+
+    The number is taken first and the code is bound to it, so a code read off
+    someone's screen cannot be redeemed from a different handset.
+    """
     settings = get_settings()
     business_number = settings.whatsapp_business_number
     if not business_number:
@@ -144,7 +152,12 @@ async def create_pairing_code(session: SessionDep, user: CurrentUser) -> Pairing
         )
 
     try:
-        issued = await whatsapp.issue_code(session, user.id)
+        phone_e164 = whatsapp.normalise_phone(phone)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
+
+    try:
+        issued = await whatsapp.issue_code(session, user.id, phone_e164=phone_e164)
     except whatsapp.RateLimitedError as exc:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from None
 
@@ -152,39 +165,9 @@ async def create_pairing_code(session: SessionDep, user: CurrentUser) -> Pairing
         code=issued.code,
         expires_at=issued.expires_at,
         business_number=business_number,
+        phone_e164=phone_e164,
         message=f"LINK {issued.code}",
         wa_me_url=whatsapp.wa_me_url(business_number, issued.code),
-        qr_svg_url=f"/api/connections/whatsapp/pairing-code/{issued.code}/qr.svg",
-    )
-
-
-@router.get(
-    "/whatsapp/pairing-code/{code}/qr.svg",
-    summary="QR encoding of the pairing deep link",
-    include_in_schema=False,
-)
-async def pairing_qr(code: str) -> Response:
-    """Render the wa.me deep link as a QR code.
-
-    Generated from the code in the path rather than looked up: the QR encodes a
-    link the caller already has, so there is nothing here to leak, and no
-    database round trip on an image request.
-    """
-    business_number = get_settings().whatsapp_business_number
-    if not business_number:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "No business number configured.")
-    if not code.isalnum() or len(code) != whatsapp.CODE_LENGTH:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Malformed code.")
-
-    qr = segno.make(whatsapp.wa_me_url(business_number, code.upper()), error="m")
-    import io
-
-    buffer = io.BytesIO()
-    qr.save(buffer, kind="svg", scale=5, dark="#e8eaf0", light=None, border=2)
-    return Response(
-        content=buffer.getvalue(),
-        media_type="image/svg+xml",
-        headers={"Cache-Control": "no-store"},
     )
 
 

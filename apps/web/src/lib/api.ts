@@ -95,7 +95,8 @@ export const api = {
       post<AuthorizationUrl>(`/api/connections/${provider}/authorize`),
     disconnect: (id: string) =>
       request<DisconnectResult>(`/api/connections/${id}`, { method: 'DELETE' }),
-    pairingCode: () => post<PairingCodeView>('/api/connections/whatsapp/pairing-code'),
+    pairingCode: (phone: string) =>
+      post<PairingCodeView>('/api/connections/whatsapp/pairing-code', { phone }),
     unlinkNumber: (id: string) =>
       request<void>(`/api/connections/whatsapp/links/${id}`, { method: 'DELETE' }),
   },

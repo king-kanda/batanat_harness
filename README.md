@@ -84,6 +84,7 @@ Non-negotiable. If a change seems to require breaking one, stop and ask.
 |---|---|
 | Frontend | TanStack Start + Router/Query, Bun, TypeScript, Tailwind v4, shadcn/ui, lucide-react |
 | Backend | Python 3.12, FastAPI, LangGraph, Pydantic v2, uv |
+| Model | Groq or OpenRouter (open weights, default) — Anthropic also supported |
 | Relational | PostgreSQL 16 — users, connections, runs, approvals, tenders, feedback, audit |
 | Vectors | Qdrant — semantic memory and document vectors |
 | Raw archive | MongoDB — raw email JSON, scraped HTML snapshots, raw tool responses |
@@ -226,6 +227,33 @@ the Docker build so it regresses loudly rather than silently months from now.
 | `/chat` | A trusted turn with the full toolbelt. Writes still queue for approval |
 | `/settings/connections` | Gmail, Zoho, WhatsApp pairing, token expiry warnings |
 | `/reports/tenders/:label` | The permalink every report email and alert links to |
+
+## Model providers
+
+The agent is not tied to a vendor. `LLM_PROVIDER` selects one:
+
+| Value | Endpoint | Default model | Key |
+|---|---|---|---|
+| `groq` *(default)* | api.groq.com | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
+| `openrouter` | openrouter.ai | `meta-llama/llama-3.3-70b-instruct` | `OPENROUTER_API_KEY` |
+| `anthropic` | api.anthropic.com | `claude-opus-5` | `ANTHROPIC_API_KEY` |
+
+Groq and OpenRouter both speak the OpenAI chat-completions API, so one client
+covers both. Set `AGENT_MODEL` to override the default; leave it blank to take
+the provider's.
+
+Switching provider is an env change — nothing downstream knows which one is in
+use, because the runner depends on a `ModelClient` protocol rather than a
+vendor. The one security-relevant detail is that tool schemas differ between
+Anthropic and OpenAI formats, so `agent/providers.py` translates them, and there
+are tests asserting the translation is exactly one-to-one. A tool that appeared
+or changed shape in translation would change what a run can do.
+
+**A caveat worth knowing:** smaller open models are less reliable at emitting
+well-formed tool-call JSON. When that happens the runner records a validation
+error and the model retries — the intended path, not a crash — but expect more
+iterations per run than with a frontier model. Worth watching the token cost on
+the Activity screen after switching.
 
 ## Observability
 

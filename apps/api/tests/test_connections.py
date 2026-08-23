@@ -222,6 +222,42 @@ def test_link_message_parsing(message: str, expected: str | None) -> None:
     assert whatsapp.parse_link_message(message) == expected
 
 
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        ("0712345678", "+254712345678"),
+        ("+254712345678", "+254712345678"),
+        ("254712345678", "+254712345678"),
+        ("0712 345 678", "+254712345678"),
+        ("712345678", "+254712345678"),
+    ],
+)
+def test_phone_numbers_are_normalised_to_e164(typed: str, expected: str) -> None:
+    """People type numbers five different ways; all of them are one number."""
+    assert whatsapp.normalise_phone(typed) == expected
+
+
+@pytest.mark.parametrize("typed", ["", "   ", "abc", "12"])
+def test_unusable_phone_numbers_are_rejected(typed: str) -> None:
+    with pytest.raises(ValueError):
+        whatsapp.normalise_phone(typed)
+
+
+async def test_a_code_is_bound_to_the_number_that_requested_it(session, user) -> None:
+    """A code read off someone's screen is useless from another handset."""
+    issued = await whatsapp.issue_code(session, user.id, phone_e164="+254712345678")
+    await session.commit()
+
+    wrong = await whatsapp.redeem_code(session, "+254799999999", issued.code)
+    assert wrong.linked is False
+    assert wrong.reply == whatsapp.GENERIC_FAILURE_REPLY
+
+    right = await whatsapp.redeem_code(session, "+254712345678", issued.code)
+    await session.commit()
+    assert right.linked is True
+    assert await whatsapp.resolve_user(session, "+254712345678") == user.id
+
+
 def test_deep_link_prefills_the_exact_message() -> None:
     url = whatsapp.wa_me_url("+254700123456", "ABCD2345")
     assert url == "https://wa.me/254700123456?text=LINK%20ABCD2345"

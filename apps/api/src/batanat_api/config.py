@@ -65,8 +65,16 @@ class Settings(BaseSettings):
     whatsapp_verify_token: str | None = None
 
     # --- model + search providers (phase 3, 4) ---
+    # Which provider the agent calls. Groq and OpenRouter are OpenAI-compatible
+    # and share one client; swapping is an env change, no code knows the
+    # difference. Leave `agent_model` blank to take the provider's default.
+    llm_provider: Literal["anthropic", "groq", "openrouter"] = "groq"
+    agent_model: str = ""
+
     anthropic_api_key: str | None = None
-    agent_model: str = "claude-opus-5"
+    groq_api_key: str | None = None
+    openrouter_api_key: str | None = None
+
     tavily_api_key: str | None = None
 
     # --- agent limits (phase 3) ---

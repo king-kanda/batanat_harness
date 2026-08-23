@@ -68,14 +68,14 @@ async def run_classification(
     session: AsyncSession, user_id: uuid.UUID, email_ids: list[uuid.UUID]
 ) -> None:
     """One agent run over the batch of new messages."""
-    from batanat_api.agent.model import AnthropicModel
+    from batanat_api.agent.providers import get_model
     from batanat_api.agent.runner import AgentRunner
 
-    model = AnthropicModel()
+    model = get_model()
     if not model.is_configured():
         log.warning(
             "gmail.trigger.no_model",
-            detail="ANTHROPIC_API_KEY is unset; messages stored but not classified.",
+            detail="No model API key for LLM_PROVIDER; messages stored, not classified.",
         )
         return
 
