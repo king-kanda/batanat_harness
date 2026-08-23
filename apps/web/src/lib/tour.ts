@@ -86,6 +86,12 @@ export const TOUR: TourStep[] = [
     body: 'Gmail, Zoho and WhatsApp. Gmail is read-only by design — the assistant can read the inbox and can never send from it.',
   },
   {
+    route: '/onboarding',
+    target: 'demo-data',
+    title: 'Showing this to someone?',
+    body: 'Load a worked example so the screens have something in them, then clear it in one click. Clearing only removes what was loaded here — anything real stays.',
+  },
+  {
     target: 'theme-toggle',
     title: 'That is the tour',
     body: 'Light and dark live here. You can restart this tour any time from the Get started page.',

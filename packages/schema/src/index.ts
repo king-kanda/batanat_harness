@@ -17,6 +17,7 @@ export type {
   ConnectionsPage,
   ConnectionView,
   DashboardView,
+  DemoDataView,
   DiffLine,
   DisconnectResult,
   DocumentView,

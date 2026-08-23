@@ -499,6 +499,32 @@
       "title": "DashboardView",
       "type": "object"
     },
+    "DemoDataView": {
+      "description": "What demo data is currently loaded, and whether the CRM is safe for it.\n\n`crm_dry_run` is surfaced so the UI can warn before someone approves a\nfixture during a demo: with dry run off and Zoho connected, approving the\nseeded lead writes a fictional company into a real CRM.",
+      "properties": {
+        "loaded": {
+          "title": "Loaded",
+          "type": "boolean"
+        },
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "crm_dry_run": {
+          "title": "Crm Dry Run",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "loaded",
+        "crm_dry_run"
+      ],
+      "title": "DemoDataView",
+      "type": "object"
+    },
     "DiffLine": {
       "properties": {
         "type": {

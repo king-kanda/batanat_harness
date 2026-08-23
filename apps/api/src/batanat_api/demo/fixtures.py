@@ -13,6 +13,13 @@ API key.
 
 The fixtures are deliberately realistic — including one email carrying a prompt
 injection, so the demo can show what the system does with it.
+
+Everything seeded is recorded in `demo_artifacts`, and clearing deletes exactly
+what is recorded there. That matters because this is reachable from a button in
+the app, on an installation that may also hold real data: a clear that worked by
+matching ids beginning with `demo-` would one day match something real. Bounding
+it by a ledger means the worst case is a demo row left behind, never a real one
+removed.
 """
 
 from __future__ import annotations
@@ -25,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from batanat_api.core.logging import get_logger
 from batanat_api.db import enums
-from batanat_api.db.models import Approval, Email, Run, Tender, ToolCall, User
+from batanat_api.db.models import Approval, DemoArtifact, Email, Run, Tender, ToolCall, User
 
 log = get_logger(__name__)
 
@@ -139,6 +146,79 @@ DEMO_TENDERS = [
 ]
 
 
+#: Delete order. Children before parents, so nothing is orphaned and nothing
+#: relies on a cascade that a future migration might loosen. `Approval` in
+#: particular must go before `Run`: its foreign key is SET NULL, so deleting the
+#: run alone would leave the demo approval sitting in the queue for good.
+CLEAR_ORDER: list[tuple[str, type]] = [
+    ("approval", Approval),
+    ("run", Run),
+    ("email", Email),
+    ("tender", Tender),
+]
+
+ENTITY_TYPES = {name for name, _ in CLEAR_ORDER}
+
+
+def _track(session: AsyncSession, user_id: uuid.UUID, entity_type: str, entity_id: uuid.UUID):
+    """Record a seeded row so clearing can find it again."""
+    assert entity_type in ENTITY_TYPES, entity_type
+    session.add(DemoArtifact(user_id=user_id, entity_type=entity_type, entity_id=entity_id))
+
+
+async def demo_status(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
+    """How many demo rows are currently loaded, by kind."""
+    from sqlalchemy import func
+
+    rows = (
+        await session.execute(
+            select(DemoArtifact.entity_type, func.count(DemoArtifact.id))
+            .where(DemoArtifact.user_id == user_id)
+            .group_by(DemoArtifact.entity_type)
+        )
+    ).all()
+    counts = {name: 0 for name in ENTITY_TYPES}
+    counts.update({entity_type: count for entity_type, count in rows})
+    return counts
+
+
+async def clear_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
+    """Delete every row the seeder created for this user, and nothing else.
+
+    Scoped twice over: to the ids in the ledger, and to this user. A row that
+    was not seeded here cannot be reached from this function.
+    """
+    from sqlalchemy import delete
+
+    removed: dict[str, int] = {}
+
+    for entity_type, model in CLEAR_ORDER:
+        ids = list(
+            (
+                await session.execute(
+                    select(DemoArtifact.entity_id).where(
+                        DemoArtifact.user_id == user_id,
+                        DemoArtifact.entity_type == entity_type,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not ids:
+            removed[entity_type] = 0
+            continue
+
+        result = await session.execute(delete(model).where(model.id.in_(ids)))
+        removed[entity_type] = result.rowcount or 0
+
+    await session.execute(delete(DemoArtifact).where(DemoArtifact.user_id == user_id))
+    await session.flush()
+
+    log.info("demo.cleared", user_id=str(user_id), **removed)
+    return removed
+
+
 async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
     """Idempotent: safe to run before every demo."""
     now = datetime.now(UTC)
@@ -156,26 +236,27 @@ async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str,
         if existing:
             continue
 
-        session.add(
-            Email(
-                user_id=user_id,
-                gmail_message_id=fixture["gmail_message_id"],
-                gmail_thread_id=f"thread-{index}",
-                from_address=fixture["from_address"],
-                from_name=fixture["from_name"],
-                subject=fixture["subject"],
-                snippet=fixture["snippet"],
-                received_at=now - timedelta(hours=index * 3 + 1),
-                category=fixture["category"],
-                priority=fixture["priority"],
-                confidence=fixture["confidence"],
-                classification={
-                    "reasoning": fixture["reasoning"],
-                    "suggested_action": fixture["suggested_action"],
-                },
-                processed_at=now - timedelta(hours=index * 3),
-            )
+        email = Email(
+            user_id=user_id,
+            gmail_message_id=fixture["gmail_message_id"],
+            gmail_thread_id=f"thread-{index}",
+            from_address=fixture["from_address"],
+            from_name=fixture["from_name"],
+            subject=fixture["subject"],
+            snippet=fixture["snippet"],
+            received_at=now - timedelta(hours=index * 3 + 1),
+            category=fixture["category"],
+            priority=fixture["priority"],
+            confidence=fixture["confidence"],
+            classification={
+                "reasoning": fixture["reasoning"],
+                "suggested_action": fixture["suggested_action"],
+            },
+            processed_at=now - timedelta(hours=index * 3),
         )
+        session.add(email)
+        await session.flush()
+        _track(session, user_id, "email", email.id)
         counts["emails"] += 1
 
     for fixture in DEMO_TENDERS:
@@ -190,23 +271,24 @@ async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str,
         if existing:
             continue
 
-        session.add(
-            Tender(
-                source=fixture["source"],
-                reference_no=fixture["reference_no"],
-                title=fixture["title"],
-                entity=fixture["entity"],
-                category=fixture["category"],
-                closing_date=now + timedelta(days=fixture["closing_days"]),
-                estimated_value=fixture["estimated_value"],
-                currency=fixture["currency"],
-                county=fixture["county"],
-                source_url=f"https://example.co.ke/demo/{fixture['reference_no']}",
-                fetched_at=now,
-                first_seen_at=now - timedelta(hours=2),
-                last_seen_at=now,
-            )
+        tender = Tender(
+            source=fixture["source"],
+            reference_no=fixture["reference_no"],
+            title=fixture["title"],
+            entity=fixture["entity"],
+            category=fixture["category"],
+            closing_date=now + timedelta(days=fixture["closing_days"]),
+            estimated_value=fixture["estimated_value"],
+            currency=fixture["currency"],
+            county=fixture["county"],
+            source_url=f"https://example.co.ke/demo/{fixture['reference_no']}",
+            fetched_at=now,
+            first_seen_at=now - timedelta(hours=2),
+            last_seen_at=now,
         )
+        session.add(tender)
+        await session.flush()
+        _track(session, user_id, "tender", tender.id)
         counts["tenders"] += 1
 
     # A run with a legible audit trail, for the Activity screen.
@@ -234,6 +316,7 @@ async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str,
         )
         session.add(run)
         await session.flush()
+        _track(session, user_id, "run", run.id)
         counts["runs"] += 1
 
         for sequence, (tool, args, result) in enumerate(
@@ -268,29 +351,30 @@ async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str,
                 )
             )
 
-        session.add(
-            Approval(
-                user_id=user_id,
-                run_id=run.id,
-                module="Leads",
-                operation="create",
-                proposed_payload={
-                    "Company": "Kenya Power and Lighting Company",
-                    "Last_Name": "Procurement",
-                    "Email": "procurement@kplc.co.ke",
-                    "Lead_Source": "Tender invitation",
-                    "Description": "Invitation to tender KP1/9A.2/PT/1/26 — 33kV switchgear, "
-                    "closing 15 September 2026.",
-                },
-                diff={
-                    "Company": {"current": None, "proposed": "Kenya Power and Lighting Company"},
-                    "Lead_Source": {"current": None, "proposed": "Tender invitation"},
-                },
-                rationale="Live tender invitation from a named procuring entity in our core "
-                "category, with a deadline inside 30 days.",
-                expires_at=now + timedelta(hours=44),
-            )
+        approval = Approval(
+            user_id=user_id,
+            run_id=run.id,
+            module="Leads",
+            operation="create",
+            proposed_payload={
+                "Company": "Kenya Power and Lighting Company",
+                "Last_Name": "Procurement",
+                "Email": "procurement@kplc.co.ke",
+                "Lead_Source": "Tender invitation",
+                "Description": "Invitation to tender KP1/9A.2/PT/1/26 — 33kV switchgear, "
+                "closing 15 September 2026.",
+            },
+            diff={
+                "Company": {"current": None, "proposed": "Kenya Power and Lighting Company"},
+                "Lead_Source": {"current": None, "proposed": "Tender invitation"},
+            },
+            rationale="Live tender invitation from a named procuring entity in our core "
+            "category, with a deadline inside 30 days.",
+            expires_at=now + timedelta(hours=44),
         )
+        session.add(approval)
+        await session.flush()
+        _track(session, user_id, "approval", approval.id)
         counts["approvals"] += 1
 
     await session.flush()
@@ -298,20 +382,16 @@ async def load_demo_data(session: AsyncSession, user_id: uuid.UUID) -> dict[str,
     return counts
 
 
-async def reset_demo(session: AsyncSession, user_id: uuid.UUID) -> None:
-    """Remove demo rows so the fixtures can be reloaded cleanly."""
-    from sqlalchemy import delete
+async def reset_demo(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
+    """Remove demo rows so the fixtures can be reloaded cleanly.
 
-    await session.execute(
-        delete(Email).where(Email.user_id == user_id, Email.gmail_message_id.like("demo-%"))
-    )
-    await session.execute(
-        delete(Tender).where(Tender.source_url.like("https://example.co.ke/demo/%"))
-    )
-    await session.execute(
-        delete(Run).where(Run.user_id == user_id, Run.trigger_ref == "demo-cycle")
-    )
-    await session.flush()
+    Kept as the name `make demo` and the tests already use; the work is
+    `clear_demo_data`, which deletes by ledger rather than by matching ids that
+    look like fixtures. The old version matched `demo-%` and a fixture URL, and
+    left the demo approval behind on every run — `Approval.run_id` is SET NULL,
+    so deleting the run just orphaned it into the pending queue.
+    """
+    return await clear_demo_data(session, user_id)
 
 
 async def main() -> None:

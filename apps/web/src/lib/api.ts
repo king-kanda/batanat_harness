@@ -15,6 +15,7 @@ import type {
   ChatResponse,
   ConnectionsPage,
   DashboardView,
+  DemoDataView,
   DiffLine,
   DisconnectResult,
   DocumentView,
@@ -210,6 +211,12 @@ export const api = {
 
   reports: {
     tenders: (label: string) => request<ReportView>(`/api/reports/tenders/${label}`),
+  },
+
+  demo: {
+    status: () => request<DemoDataView>('/api/demo'),
+    seed: () => post<DemoDataView>('/api/demo/seed'),
+    clear: () => post<DemoDataView>('/api/demo/clear'),
   },
 
   chat: (message: string) => post<ChatResponse>('/api/chat', { message }),

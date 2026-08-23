@@ -27,6 +27,7 @@ from batanat_api.contracts.operations import (
     ChatRequest,
     ChatResponse,
     DashboardView,
+    DemoDataView,
     DiffLine,
     DocumentView,
     EmailView,
@@ -897,6 +898,52 @@ async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> Cha
         tool_calls=result.tool_calls,
         status=result.status,
     )
+
+
+# --- demo data ----------------------------------------------------------------
+
+
+def _demo_view(counts: dict[str, int]) -> DemoDataView:
+    return DemoDataView(
+        loaded=any(counts.values()),
+        counts=counts,
+        crm_dry_run=get_settings().crm_dry_run,
+    )
+
+
+@router.get("/demo", response_model=DemoDataView, summary="What demo data is loaded")
+async def demo_state(session: SessionDep, user: CurrentUser) -> DemoDataView:
+    from batanat_api.demo.fixtures import demo_status
+
+    return _demo_view(await demo_status(session, user.id))
+
+
+@router.post("/demo/seed", response_model=DemoDataView, summary="Load demo data")
+async def demo_seed(session: SessionDep, user: CurrentUser) -> DemoDataView:
+    """Populate the app with a realistic worked example.
+
+    Idempotent — pressing it twice does not double anything, because the seeder
+    checks for each fixture before creating it.
+    """
+    from batanat_api.demo.fixtures import demo_status, load_demo_data
+
+    created = await load_demo_data(session, user.id)
+    log.info("demo.seeded", user_id=str(user.id), **created)
+    return _demo_view(await demo_status(session, user.id))
+
+
+@router.post("/demo/clear", response_model=DemoDataView, summary="Remove demo data")
+async def demo_clear(session: SessionDep, user: CurrentUser) -> DemoDataView:
+    """Delete exactly the rows the seeder created, and nothing else.
+
+    Bounded by the `demo_artifacts` ledger, so real email, real tenders and real
+    approvals cannot be reached from here even if they happen to resemble a
+    fixture.
+    """
+    from batanat_api.demo.fixtures import clear_demo_data, demo_status
+
+    await clear_demo_data(session, user.id)
+    return _demo_view(await demo_status(session, user.id))
 
 
 # --- manual triggers ---------------------------------------------------------
