@@ -25,6 +25,7 @@ import type {
   Provider,
   ReportView,
   RunView,
+  SkillDraftResponse,
   SkillValidationView,
   SkillVersionView,
   TenderSourceView,
@@ -156,6 +157,11 @@ export const api = {
     publish: (content: string, notes?: string) =>
       post<SkillVersionView>('/api/skill', { content, notes }),
     rollback: (version: number) => post<SkillVersionView>(`/api/skill/${version}/rollback`),
+    draft: (messages: Array<{ role: string; content: string }>, currentContent?: string) =>
+      post<SkillDraftResponse>('/api/skill/draft', {
+        messages,
+        current_content: currentContent,
+      }),
     diff: (oldVersion: number, newVersion: number) =>
       request<DiffLine[]>(`/api/skill/diff?old=${oldVersion}&new=${newVersion}`),
   },

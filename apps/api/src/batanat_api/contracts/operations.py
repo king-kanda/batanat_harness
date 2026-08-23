@@ -185,6 +185,26 @@ class DiffLine(BaseModel):
     text: str
 
 
+class SkillDraftMessage(BaseModel):
+    role: str = Field(description="user | assistant")
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class SkillDraftRequest(BaseModel):
+    messages: list[SkillDraftMessage] = Field(min_length=1, max_length=40)
+    current_content: str | None = None
+
+
+class SkillDraftResponse(BaseModel):
+    reply: str
+    proposed_content: str | None = Field(
+        default=None,
+        description="A complete replacement document, when the assistant produced one. "
+        "Never published automatically.",
+    )
+    validation: SkillValidationView | None = None
+
+
 class MemoryView(BaseModel):
     id: uuid.UUID
     layer: str

@@ -1,7 +1,7 @@
 import type { TenderSourceView } from '@batanat/schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
+import { ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { StatusBadge, toneFor } from '#/components/status-badge'
@@ -30,18 +30,6 @@ function Sources() {
 
   return (
     <div className="space-y-4">
-      {(dashboard.data?.kill_switch || dashboard.data?.crm_dry_run) && (
-        <div className="border-status-degraded/30 bg-status-degraded/10 text-status-degraded flex flex-wrap items-start gap-2 rounded-lg border px-3 py-2 text-xs">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <div className="min-w-0 space-y-0.5">
-            {dashboard.data.kill_switch && <p>Kill switch engaged — no agent runs will start.</p>}
-            {dashboard.data.crm_dry_run && (
-              <p>CRM dry run — approved writes are logged, not sent to Zoho.</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="border-status-down/30 bg-status-down/10 text-status-down rounded-lg border px-3 py-2 text-xs">
           {error}
@@ -175,12 +163,17 @@ function SourceRow({
         {source.is_custom && <StatusBadge tone="neutral">Yours</StatusBadge>}
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => toggle.mutate()} disabled={toggle.isPending}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggle.mutate()}
+            disabled={toggle.isPending}
+          >
             {source.is_enabled ? 'Disable' : 'Enable'}
           </Button>
           {source.is_custom && (
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon-sm"
               onClick={() => remove.mutate()}
               disabled={remove.isPending}

@@ -118,7 +118,7 @@ function Home() {
         </div>
       )}
 
-      <Card className="py-0 shadow-sm">
+      <Card className="py-0 shadow-sm" data-tour="chat-input">
         <CardContent className="flex items-end gap-2 p-2">
           <Textarea
             value={input}

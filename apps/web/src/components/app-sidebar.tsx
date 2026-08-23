@@ -11,6 +11,7 @@ import {
   ScrollText,
   ScrollText as AuditIcon,
   LogOut,
+  Rocket,
 } from 'lucide-react'
 
 import { StatusDot, toneFor } from '#/components/status-badge'
@@ -30,20 +31,33 @@ import {
   SidebarRail,
 } from '#/components/ui/sidebar'
 import { api } from '#/lib/api'
+import { useOnboarding } from '#/lib/onboarding'
 
-const WORKSPACE = [
-  { to: '/', label: 'Chat', icon: MessageSquare },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare },
-  { to: '/opportunities', label: 'Opportunities', icon: ListChecks },
-  { to: '/audit', label: 'Audit logs', icon: AuditIcon },
+/** Day to day: the things you act on. */
+const WORK = [
+  { to: '/', label: 'Chat', icon: MessageSquare, tour: 'nav-chat' },
+  { to: '/opportunities', label: 'Opportunities', icon: ListChecks, tour: 'nav-opportunities' },
+  { to: '/approvals', label: 'Approvals', icon: CheckSquare, tour: 'nav-approvals' },
 ] as const
 
-const SETTINGS = [
-  { to: '/rules', label: 'Rules', icon: ScrollText },
-  { to: '/settings/knowledge', label: 'Knowledge base', icon: Library },
-  { to: '/memory', label: 'Memory', icon: Brain },
-  { to: '/settings/sources', label: 'Sources & schedule', icon: Radio },
-  { to: '/settings/connections', label: 'Connections', icon: Plug },
+/** Looking back: what the assistant did and what it knows. */
+const REVIEW = [
+  { to: '/audit', label: 'Audit logs', icon: AuditIcon, tour: 'nav-audit' },
+  { to: '/memory', label: 'Memory', icon: Brain, tour: 'nav-memory' },
+] as const
+
+/** Teaching it: the things you change to alter its behaviour. */
+const CONFIGURE = [
+  { to: '/rules', label: 'Rules', icon: ScrollText, tour: 'nav-rules' },
+  { to: '/settings/knowledge', label: 'Knowledge base', icon: Library, tour: 'nav-knowledge' },
+  { to: '/settings/sources', label: 'Sources & schedule', icon: Radio, tour: 'nav-sources' },
+  { to: '/settings/connections', label: 'Connections', icon: Plug, tour: 'nav-connections' },
+] as const
+
+const GROUPS = [
+  { label: 'Work', items: WORK },
+  { label: 'Review', items: REVIEW },
+  { label: 'Configure', items: CONFIGURE },
 ] as const
 
 export function AppSidebar() {
@@ -70,6 +84,7 @@ export function AppSidebar() {
     },
   })
 
+  const onboarding = useOnboarding()
   const pending = dashboard.data?.pending_approvals ?? 0
   const sources = dashboard.data?.sources ?? []
   const failing = sources.filter((s) => s.health === 'failing').length
@@ -90,52 +105,58 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {WORKSPACE.map(({ to, label, icon: Icon }) => (
-                <SidebarMenuItem key={to}>
+        {!onboarding.complete && !onboarding.loading && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
-                    tooltip={label}
+                    isActive={pathname === '/onboarding'}
+                    tooltip="Get started"
                   >
-                    <Link to={to}>
-                      <Icon />
-                      <span>{label}</span>
+                    <Link to="/onboarding" data-tour="nav-onboarding">
+                      <Rocket />
+                      <span>Get started</span>
                     </Link>
                   </SidebarMenuButton>
-                  {label === 'Approvals' && pending > 0 && (
-                    <SidebarMenuBadge className="text-status-degraded">{pending}</SidebarMenuBadge>
-                  )}
+                  <SidebarMenuBadge className="text-muted-foreground">
+                    {onboarding.done}/{onboarding.total}
+                  </SidebarMenuBadge>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {SETTINGS.map(({ to, label, icon: Icon }) => (
-                <SidebarMenuItem key={to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(to)}
-                    tooltip={label}
-                  >
-                    <Link to={to}>
-                      <Icon />
-                      <span>{label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {GROUPS.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map(({ to, label, icon: Icon, tour }) => (
+                  <SidebarMenuItem key={to}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
+                      tooltip={label}
+                    >
+                      <Link to={to} data-tour={tour}>
+                        <Icon />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                    {label === 'Approvals' && pending > 0 && (
+                      <SidebarMenuBadge className="text-status-degraded">
+                        {pending}
+                      </SidebarMenuBadge>
+                    )}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>
