@@ -262,6 +262,42 @@ never logged must not depend on every future author remembering it.
 
 ---
 
+## What I would change with a budget
+
+Honest list, in the order I would spend on it.
+
+**Authentication.** There is none. The PRD has no auth phase and the app assumes
+a single seeded user; `get_current_user` is one function, and every call site
+already takes a `user_id`, so this is contained — but it is contained *pending*,
+not done. First thing I would build before anyone else touches this.
+
+**The four scrapers.** KPLC, KenGen, KETRACO and PPIP render client-side. A
+headless browser fixes it and costs ~400MB, a slower cron, and a new class of
+flakiness. Their private JSON endpoints are cheaper and break without notice. I
+would probably do both: endpoints first, browser as the fallback, search as the
+fallback's fallback.
+
+**A real queue.** Runs happen inline in the request or the cron tick. That is
+fine at this volume and wrong at ten times it — a slow scrape holds a worker,
+and a crash mid-run loses the tail. Celery or arq with the existing Redis.
+
+**Classification cost.** Every new email currently goes to the model. A cheap
+first pass — sender allowlist, keyword prefilter, thread deduplication — would
+cut that substantially before anything expensive runs.
+
+**The Skill.MD validator.** It is regex heuristics guarding something that does
+not actually need guarding, since no security decision reads that document. I
+would either make it a warning rather than a rejection, or replace it with a
+structured editor where the dangerous shapes are simply not expressible.
+
+**Observability beyond logs.** Every run has an id, a cost and a duration in
+Postgres, which is most of the way to useful. What is missing is a place to see
+cost-per-run trending up, or a source that has quietly been degraded for a week.
+
+**Test isolation for the network.** The tender tests exercise parsing against
+fixtures, but `make sources` hits live sites. A recorded-cassette layer would
+make source regressions catchable in CI rather than on a Tuesday morning.
+
 ## Phase status
 
 | Phase | Scope | Status |
