@@ -16,20 +16,45 @@ that gets committed.
 
 ---
 
-## 0. Quick wins — do these first
+## 0. Running it right now — nothing required
 
-- [ ] A model API key in `.env`. **Nothing classifies or chats without one.**
-      This is the single highest-impact item on the page.
-      Ships defaulted to `LLM_PROVIDER=groq` → set `GROQ_API_KEY`
-      (<https://console.groq.com>). For OpenRouter set `LLM_PROVIDER=openrouter`
-      and `OPENROUTER_API_KEY`. Anthropic still works if you want it.
-- [ ] `TAVILY_API_KEY` in `.env`. Turns on the search fallback that covers the
-      four scrapers that cannot be scraped (see section 9).
-- [ ] Set `CRM_DRY_RUN=false` when you want approved writes to actually reach
-      Zoho. It ships `true`, so today an approval is logged and not sent.
-- [ ] Set `ENABLE_SCHEDULER=true` to turn on the 11:00/17:00 EAT tender sweeps
-      and the nightly maintenance job. Off by default so a one-off script never
-      starts cron.
+The system already runs with **zero credentials**:
+
+```bash
+make setup     # uv, deps, .env, migrations, seed
+make demo      # fixture emails, tenders, an approval, a run with a full audit trail
+make api       # terminal one
+make web       # terminal two
+```
+
+Then sign in at <http://localhost:3000/login> with `martin@batanat.co.ke` / `batanat-dev`.
+
+Scraping works without any key — REREC returns ~157 real tenders today. What you
+*cannot* do without keys is classify, chat, email a report, or write to Zoho.
+
+---
+
+## 1. The one key that unlocks the most
+
+- [ ] **A model API key.** Nothing classifies or chats without it. Ships set to
+      `LLM_PROVIDER=groq`, so get a key at <https://console.groq.com> and set
+      `GROQ_API_KEY`. For OpenRouter set `LLM_PROVIDER=openrouter` and
+      `OPENROUTER_API_KEY`; Anthropic also works.
+
+That single line turns the chat box, email classification and tender relevance
+scoring on. Everything below is per-capability.
+
+---
+
+## 2. Switches you may want on
+
+- [ ] `ENABLE_SCHEDULER=true` — the 11:00/17:00 EAT tender sweeps and the 02:00
+      maintenance job. Off by default so a one-off script never starts cron.
+- [ ] `CRM_DRY_RUN=false` — until you set this, an approved CRM write is logged
+      and not sent to Zoho. Leave it `true` until you have watched a few
+      approvals go through.
+- [ ] `TAVILY_API_KEY` — the search fallback covering the four scrapers that
+      cannot be scraped. <https://tavily.com>, free tier is fine.
 
 ---
 

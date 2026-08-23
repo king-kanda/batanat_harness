@@ -70,7 +70,7 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
   --lime: oklch(0.92 0.2 122);
   --lime-soft: oklch(0.95 0.09 122);
@@ -157,6 +157,16 @@
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  /* Hairline everywhere. Tailwind's `border` is already 1px, but panels that
+     set a side border (the sidebar, table rows) inherit whatever a component
+     library chose — this pins all of them to one width. */
+  *,
+  ::before,
+  ::after {
+    border-width: 0;
+    border-style: solid;
   }
 
   body {
