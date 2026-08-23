@@ -162,13 +162,14 @@ export interface MemoryView {
 export interface PairingCodeView {
   code: string;
   expires_at: string;
+  /** The shared number the user must text. */
   business_number: string;
+  /** The number this code was issued for, normalised. */
+  phone_e164: string;
   /** Exactly what the user should send, e.g. 'LINK ABCD2345'. */
   message: string;
   /** Deep link that opens WhatsApp with the message prefilled. */
   wa_me_url: string;
-  /** Endpoint serving the same deep link as a QR code. */
-  qr_svg_url: string;
 }
 
 export type Priority = "high" | "medium" | "low";

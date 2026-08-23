@@ -885,7 +885,13 @@
           "type": "string"
         },
         "business_number": {
+          "description": "The shared number the user must text.",
           "title": "Business Number",
+          "type": "string"
+        },
+        "phone_e164": {
+          "description": "The number this code was issued for, normalised.",
+          "title": "Phone E164",
           "type": "string"
         },
         "message": {
@@ -897,20 +903,15 @@
           "description": "Deep link that opens WhatsApp with the message prefilled.",
           "title": "Wa Me Url",
           "type": "string"
-        },
-        "qr_svg_url": {
-          "description": "Endpoint serving the same deep link as a QR code.",
-          "title": "Qr Svg Url",
-          "type": "string"
         }
       },
       "required": [
         "code",
         "expires_at",
         "business_number",
+        "phone_e164",
         "message",
-        "wa_me_url",
-        "qr_svg_url"
+        "wa_me_url"
       ],
       "title": "PairingCodeView",
       "type": "object"

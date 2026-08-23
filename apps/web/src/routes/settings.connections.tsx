@@ -8,7 +8,7 @@ import { ConnectionCard, PROVIDER_LABEL } from '#/components/connection-card'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
-import { API_BASE_URL, api } from '#/lib/api'
+import { api } from '#/lib/api'
 
 type Search = { connected?: string; error?: string }
 
@@ -26,6 +26,7 @@ function ConnectionsPage() {
   const search = useSearch({ from: '/settings/connections' })
   const queryClient = useQueryClient()
   const [pairing, setPairing] = useState<PairingCodeView | null>(null)
+  const [phoneInput, setPhoneInput] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
 
   const page = useQuery({ queryKey: ['connections'], queryFn: api.connections.list })
@@ -50,7 +51,7 @@ function ConnectionsPage() {
   })
 
   const requestCode = useMutation({
-    mutationFn: api.connections.pairingCode,
+    mutationFn: (phone: string) => api.connections.pairingCode(phone),
     onSuccess: (code) => {
       setPairing(code)
       setActionError(null)
@@ -161,31 +162,40 @@ function ConnectionsPage() {
         <CardContent className="space-y-3">
           {pairing ? (
             <PairingInstructions pairing={pairing} onDismiss={() => setPairing(null)} />
-          ) : (
-            <div className="flex items-center justify-between gap-4">
+          ) : data?.whatsapp_business_number ? (
+            <div className="space-y-2">
               <p className="text-ink-muted text-xs">
-                {data?.whatsapp_business_number ? (
-                  <>
-                    Send a pairing code to{' '}
-                    <span className="text-ink font-mono">{data.whatsapp_business_number}</span> from
-                    the phone you want to link.
-                  </>
-                ) : (
-                  <>
-                    Set <span className="font-mono">WHATSAPP_BUSINESS_NUMBER</span> in{' '}
-                    <span className="font-mono">.env</span> to enable pairing.
-                  </>
-                )}
+                Enter the number you want to link. We will give you a code to text to{' '}
+                <span className="text-ink font-mono">{data.whatsapp_business_number}</span> from
+                that handset.
               </p>
-              <Button
-                variant="primary"
-                onClick={() => requestCode.mutate()}
-                disabled={requestCode.isPending || !data?.whatsapp_business_number}
-              >
-                {requestCode.isPending && <Loader2 className="size-3 animate-spin" aria-hidden />}
-                Get a pairing code
-              </Button>
+              <div className="flex gap-2">
+                <input
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && requestCode.mutate(phoneInput)}
+                  placeholder="0712 345 678"
+                  inputMode="tel"
+                  className="bg-surface border-border-subtle text-ink focus:border-accent w-48 rounded border px-3 py-2 font-mono text-xs outline-none"
+                />
+                <Button
+                  variant="primary"
+                  onClick={() => requestCode.mutate(phoneInput)}
+                  disabled={requestCode.isPending || phoneInput.trim().length < 7}
+                >
+                  {requestCode.isPending && <Loader2 className="size-3 animate-spin" aria-hidden />}
+                  Pair this number
+                </Button>
+              </div>
+              <p className="text-ink-faint text-[11px]">
+                The code only works from the number you enter here.
+              </p>
             </div>
+          ) : (
+            <p className="text-ink-muted text-xs">
+              Set <span className="font-mono">WHATSAPP_BUSINESS_NUMBER</span> in{' '}
+              <span className="font-mono">.env</span> to enable pairing.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -214,18 +224,12 @@ function PairingInstructions({
   )
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <img
-        src={`${API_BASE_URL}${pairing.qr_svg_url}`}
-        alt={`QR code containing the message LINK ${pairing.code}`}
-        className="border-border-subtle size-32 shrink-0 rounded border p-1"
-      />
-
+    <div className="space-y-3">
       <div className="min-w-0 flex-1 space-y-2">
         <ol className="text-ink-muted list-inside list-decimal space-y-1 text-xs">
           <li>
-            Scan the code, or message{' '}
-            <span className="text-ink font-mono">{pairing.business_number}</span> on WhatsApp.
+            From <span className="text-ink font-mono">{pairing.phone_e164}</span>, open WhatsApp
+            and message <span className="text-ink font-mono">{pairing.business_number}</span>.
           </li>
           <li>
             Send exactly: <span className="text-ink font-mono">{pairing.message}</span>
@@ -249,7 +253,8 @@ function PairingInstructions({
         </div>
 
         <p className="text-ink-faint text-[11px]">
-          Expires in {minutesLeft} min. Single use.
+          Expires in {minutesLeft} min. Single use, and only from{' '}
+          <span className="font-mono">{pairing.phone_e164}</span>.
         </p>
       </div>
     </div>

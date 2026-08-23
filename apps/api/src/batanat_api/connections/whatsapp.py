@@ -70,6 +70,8 @@ class PairingResult:
 class IssuedCode:
     code: str
     expires_at: datetime
+    #: The number this code was issued for, if one was given.
+    phone_e164: str | None = None
 
 
 def generate_code() -> str:
@@ -95,8 +97,35 @@ async def _rate_limit(key: str, limit: int, window_seconds: int = 3600) -> None:
         await client.aclose()
 
 
-async def issue_code(session: AsyncSession, user_id: uuid.UUID) -> IssuedCode:
-    """Create a single-use pairing code for this user."""
+def normalise_phone(raw: str) -> str:
+    """Accept what a human types; store E.164.
+
+    "0712 345 678", "+254712345678" and "254712345678" are the same number. A
+    Kenyan local number beginning 0 is expanded with the +254 country code.
+    """
+    digits = "".join(ch for ch in (raw or "") if ch.isdigit() or ch == "+")
+    digits = digits.replace("+", "")
+
+    if not digits:
+        raise ValueError("Enter a phone number.")
+    if digits.startswith("0"):
+        digits = "254" + digits[1:]
+    if not digits.startswith("254") and len(digits) == 9:
+        digits = "254" + digits
+
+    if not (9 <= len(digits) <= 15):
+        raise ValueError(f"That does not look like a phone number: {raw!r}")
+    return f"+{digits}"
+
+
+async def issue_code(
+    session: AsyncSession, user_id: uuid.UUID, *, phone_e164: str | None = None
+) -> IssuedCode:
+    """Create a single-use pairing code, bound to the number that asked for it.
+
+    Binding matters: the code can then only be redeemed by that number, so a
+    code read off someone's screen is useless from another handset.
+    """
     await _rate_limit(f"pairing:issue:{user_id}", MAX_CODES_PER_USER_PER_HOUR)
 
     now = datetime.now(UTC)
@@ -114,11 +143,26 @@ async def issue_code(session: AsyncSession, user_id: uuid.UUID) -> IssuedCode:
         raise RuntimeError("Could not allocate a unique pairing code.")
 
     expires_at = now + CODE_TTL
-    session.add(PairingCode(user_id=user_id, code=code, expires_at=expires_at))
+    session.add(
+        PairingCode(
+            user_id=user_id,
+            code=code,
+            expires_at=expires_at,
+            # Reusing `used_by_phone` as "the number this code is for". It is
+            # overwritten with the redeeming number on success, which is the
+            # same value when everything is in order.
+            used_by_phone=phone_e164,
+        )
+    )
     await session.flush()
 
-    log.info("whatsapp.pairing.issued", user_id=str(user_id), expires_at=expires_at.isoformat())
-    return IssuedCode(code=code, expires_at=expires_at)
+    log.info(
+        "whatsapp.pairing.issued",
+        user_id=str(user_id),
+        for_phone=_mask(phone_e164) if phone_e164 else None,
+        expires_at=expires_at.isoformat(),
+    )
+    return IssuedCode(code=code, expires_at=expires_at, phone_e164=phone_e164)
 
 
 def parse_link_message(body: str) -> str | None:
@@ -159,6 +203,15 @@ async def redeem_code(
 
     if pairing_code.expires_at <= now:
         log.info("whatsapp.pairing.code_expired", phone=_mask(phone_e164))
+        return PairingResult(linked=False, reply=GENERIC_FAILURE_REPLY)
+
+    # The code was issued for a specific number; only that number may use it.
+    if pairing_code.used_by_phone and pairing_code.used_by_phone != phone_e164:
+        log.warning(
+            "whatsapp.pairing.wrong_number",
+            expected=_mask(pairing_code.used_by_phone),
+            got=_mask(phone_e164),
+        )
         return PairingResult(linked=False, reply=GENERIC_FAILURE_REPLY)
 
     existing_link = (

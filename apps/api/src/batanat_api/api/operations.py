@@ -618,15 +618,15 @@ async def tender_report(label: str, session: SessionDep, user: CurrentUser) -> R
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> ChatResponse:
     """A trusted turn: the full toolbelt, but writes still queue for approval."""
-    from batanat_api.agent.model import AnthropicModel
+    from batanat_api.agent.providers import get_model
     from batanat_api.agent.runner import AgentRunner, KillSwitchEngagedError
     from batanat_api.memory.store import assemble
 
-    model = AnthropicModel()
+    model = get_model()
     if not model.is_configured():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "ANTHROPIC_API_KEY is not set, so the agent cannot run — see TODO.md.",
+            "No model API key is set for the selected LLM_PROVIDER — see TODO.md.",
         )
 
     active = await skill_service.get_active(session, user.id)

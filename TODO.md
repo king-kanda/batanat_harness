@@ -18,8 +18,11 @@ that gets committed.
 
 ## 0. Quick wins — do these first
 
-- [ ] `ANTHROPIC_API_KEY` in `.env`. **Nothing classifies or chats without it.**
+- [ ] A model API key in `.env`. **Nothing classifies or chats without one.**
       This is the single highest-impact item on the page.
+      Ships defaulted to `LLM_PROVIDER=groq` → set `GROQ_API_KEY`
+      (<https://console.groq.com>). For OpenRouter set `LLM_PROVIDER=openrouter`
+      and `OPENROUTER_API_KEY`. Anthropic still works if you want it.
 - [ ] `TAVILY_API_KEY` in `.env`. Turns on the search fallback that covers the
       four scrapers that cannot be scraped (see section 9).
 - [ ] Set `CRM_DRY_RUN=false` when you want approved writes to actually reach
@@ -124,7 +127,7 @@ submit these names so they are approved by the time we need them:
 
 ## 5. Credentials — model and search  **BLOCKING Phase 3 + 4**
 
-- [ ] `ANTHROPIC_API_KEY` — <https://console.anthropic.com>
+- [ ] One of `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY`, matching `LLM_PROVIDER`.
 - [ ] `TAVILY_API_KEY` — <https://tavily.com>, free tier is fine. This powers the tender search
       fallback for sites whose HTML fights us.
 
