@@ -1,13 +1,71 @@
+# Every pull request, and reusable by the release workflow so an image is never
+# published from a commit that has not passed this.
+#
+# The service containers matter more than they look. Without a reachable
+# Postgres the suite *skips* its database tests rather than failing them, which
+# means a pipeline can go green having verified almost nothing. `CI=true` turns
+# that skip into a failure (see tests/conftest.py), and these services are what
+# stop it firing.
+
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   api:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: batanat
+          POSTGRES_PASSWORD: batanat
+          POSTGRES_DB: batanat
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U batanat -d batanat"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+
+      mongo:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: batanat
+          MONGO_INITDB_ROOT_PASSWORD: batanat
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+
+      qdrant:
+        image: qdrant/qdrant:v1.12.4
+        ports: ["6333:6333"]
+
+    env:
+      APP_ENV: local
+      DATABASE_URL: postgresql://batanat:batanat@localhost:5432/batanat
+      REDIS_URL: redis://localhost:6379/0
+      MONGO_URL: mongodb://batanat:batanat@localhost:27017
+      QDRANT_URL: http://localhost:6333
+      # Ephemeral and throwaway. Real values never appear in CI.
+      TOKEN_ENCRYPTION_KEY: 8ZfQ0nJ5xJ3nQ0Y8pQ2sV7wX1yZ4aB6cD8eF0gH2iJ4=
+      SESSION_SECRET: ci-session-secret-not-used-anywhere-real
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +88,22 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+      - name: Migrations apply cleanly, and reverse
+        working-directory: apps/api
+        run: |
+          uv run alembic upgrade head
+          # A migration nobody can roll back is a migration you cannot deploy
+          # on a Friday. Prove the whole chain goes both ways.
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+      - name: Model and migrations agree
+        working-directory: apps/api
+        run: uv run alembic check
+
       - name: Test
         working-directory: apps/api
-        run: uv run pytest
+        run: uv run pytest -q
 
       - name: Contracts are up to date
         run: |
@@ -57,3 +128,34 @@ jobs:
 
       - name: Build
         run: cd apps/web && bun run build
+
+  # Catches a broken Dockerfile on the pull request that broke it, rather than
+  # at release time. Builds only — nothing is pushed from here.
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/api/Dockerfile
+          - name: web
+            dockerfile: apps/web/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: batanat/${{ matrix.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Image runs and is not enormous
+        run: |
+          MB=$(( $(docker image inspect batanat/${{ matrix.name }}:ci --format '{{.Size}}') / 1024 / 1024 ))
+          echo "${{ matrix.name }}: ${MB}MB"
+          [ "$MB" -le 1200 ] || { echo "::error::image is ${MB}MB — check for CUDA/torch"; exit 1; }
