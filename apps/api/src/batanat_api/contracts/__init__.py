@@ -27,6 +27,7 @@ from batanat_api.contracts.operations import (
     ChatRequest,
     ChatResponse,
     DashboardView,
+    DemoDataView,
     DiffLine,
     DocumentView,
     EmailView,
@@ -47,6 +48,7 @@ from batanat_api.contracts.operations import (
 )
 
 EXPORTED_MODELS = [
+    DemoDataView,
     ServiceHealth,
     HealthResponse,
     ErrorResponse,

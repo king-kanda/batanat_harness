@@ -261,3 +261,16 @@ class ChatResponse(BaseModel):
     bound_tools: list[str]
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     status: RunStatus
+
+
+class DemoDataView(BaseModel):
+    """What demo data is currently loaded, and whether the CRM is safe for it.
+
+    `crm_dry_run` is surfaced so the UI can warn before someone approves a
+    fixture during a demo: with dry run off and Zoho connected, approving the
+    seeded lead writes a fictional company into a real CRM.
+    """
+
+    loaded: bool
+    counts: dict[str, int] = Field(default_factory=dict)
+    crm_dry_run: bool

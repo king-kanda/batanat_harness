@@ -489,6 +489,36 @@ class Approval(Base, TimestampMixin):
     execution_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class DemoArtifact(Base, CreatedAtMixin):
+    """A row the demo seeder created, so clearing can delete exactly those.
+
+    The alternative is matching on shape — ids that start with `demo-`, URLs on
+    a fixture domain — and a delete button that works by pattern is a delete
+    button that will one day match something real. This records what was
+    created, so "clear demo data" is bounded by construction: it can only remove
+    rows that seeding put here, and it cannot invent a match.
+
+    It also survives the fixtures changing. Rename a fixture and the old rows
+    are still tracked, which pattern matching would silently orphan — as the
+    previous reset did to the demo approval every time it ran, because deleting
+    the run only nulls the approval's `run_id`.
+    """
+
+    __tablename__ = "demo_artifacts"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id"),
+        Index("ix_demo_artifacts_user", "user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Matches a key in `demo.fixtures.CLEAR_ORDER`.
+    entity_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+
+
 class ProcessedWebhook(Base, CreatedAtMixin):
     """One row per webhook delivery we have already handled.
 
@@ -616,6 +646,7 @@ __all__ = [
     "Approval",
     "Base",
     "Connection",
+    "DemoArtifact",
     "Email",
     "Feedback",
     "GmailSyncState",

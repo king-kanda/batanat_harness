@@ -218,7 +218,7 @@ the Docker build so it regresses loudly rather than silently months from now.
 
 | Route | What it is for |
 |---|---|
-| `/onboarding` | Five-step checklist, derived from what is actually configured, plus the tour |
+| `/onboarding` | Five-step checklist, derived from what is actually configured, the tour, and load/clear for sample data |
 | `/settings/rules-assistant` | Talk through your criteria; it drafts the document, you publish it. Also available as a drawer on `/rules`, where the draft lands in the editor you are already using |
 | `/login` | Sign in. Seeded credentials are shown on the page in development only |
 | `/` | **Chat** — the front door. Opens with a summary of what is waiting, which retracts once you start typing. Each card links to where that thing lives |

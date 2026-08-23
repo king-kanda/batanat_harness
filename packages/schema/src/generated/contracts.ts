@@ -92,6 +92,13 @@ export interface DashboardView {
   crm_dry_run?: boolean;
 }
 
+/** What demo data is currently loaded, and whether the CRM is safe for it. `crm_dry_run` is surfaced so the UI can warn before someone approves a fixture during a demo: with dry run off and Zoho connected, approving the seeded lead writes a fictional company into a real CRM. */
+export interface DemoDataView {
+  loaded: boolean;
+  counts?: Record<string, number>;
+  crm_dry_run: boolean;
+}
+
 export interface DiffLine {
   type: string;
   text: string;

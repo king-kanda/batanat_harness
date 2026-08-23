@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { ArrowRight, Check, Circle } from 'lucide-react'
 
+import { DemoData } from '#/components/demo-data'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { useOnboarding } from '#/lib/onboarding'
@@ -82,6 +83,8 @@ function Onboarding() {
           </Card>
         ))}
       </div>
+
+      <DemoData />
 
       <Card>
         <CardHeader>
