@@ -10,13 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
-import { Route as ChatRouteImport } from './routes/chat'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as ResultsRouteImport } from './routes/results'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
+import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
+import { Route as SettingsSourcesRouteImport } from './routes/settings.sources'
 import { Route as ReportsTendersLabelRouteImport } from './routes/reports.tenders.$label'
 
 const IndexRoute = IndexRouteImport.update({
@@ -24,19 +25,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActivityRoute = ActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MemoryRoute = MemoryRouteImport.update({
@@ -59,6 +55,16 @@ const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
   path: '/settings/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsKnowledgeRoute = SettingsKnowledgeRouteImport.update({
+  id: '/settings/knowledge',
+  path: '/settings/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsSourcesRoute = SettingsSourcesRouteImport.update({
+  id: '/settings/sources',
+  path: '/settings/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsTendersLabelRoute = ReportsTendersLabelRouteImport.update({
   id: '/reports/tenders/$label',
   path: '/reports/tenders/$label',
@@ -67,83 +73,90 @@ const ReportsTendersLabelRoute = ReportsTendersLabelRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
-  '/chat': typeof ChatRoute
+  '/audit': typeof AuditRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
-  '/chat': typeof ChatRoute
+  '/audit': typeof AuditRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/approvals': typeof ApprovalsRoute
-  '/chat': typeof ChatRoute
+  '/audit': typeof AuditRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/activity'
     | '/approvals'
-    | '/chat'
+    | '/audit'
     | '/memory'
     | '/results'
     | '/rules'
     | '/settings/connections'
+    | '/settings/knowledge'
+    | '/settings/sources'
     | '/reports/tenders/$label'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/activity'
     | '/approvals'
-    | '/chat'
+    | '/audit'
     | '/memory'
     | '/results'
     | '/rules'
     | '/settings/connections'
+    | '/settings/knowledge'
+    | '/settings/sources'
     | '/reports/tenders/$label'
   id:
     | '__root__'
     | '/'
-    | '/activity'
     | '/approvals'
-    | '/chat'
+    | '/audit'
     | '/memory'
     | '/results'
     | '/rules'
     | '/settings/connections'
+    | '/settings/knowledge'
+    | '/settings/sources'
     | '/reports/tenders/$label'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ActivityRoute: typeof ActivityRoute
   ApprovalsRoute: typeof ApprovalsRoute
-  ChatRoute: typeof ChatRoute
+  AuditRoute: typeof AuditRoute
   MemoryRoute: typeof MemoryRoute
   ResultsRoute: typeof ResultsRoute
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
+  SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
+  SettingsSourcesRoute: typeof SettingsSourcesRoute
   ReportsTendersLabelRoute: typeof ReportsTendersLabelRoute
 }
 
@@ -156,13 +169,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/activity': {
-      id: '/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof ActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/approvals': {
       id: '/approvals'
       path: '/approvals'
@@ -170,11 +176,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/memory': {
@@ -205,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/knowledge': {
+      id: '/settings/knowledge'
+      path: '/settings/knowledge'
+      fullPath: '/settings/knowledge'
+      preLoaderRoute: typeof SettingsKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/sources': {
+      id: '/settings/sources'
+      path: '/settings/sources'
+      fullPath: '/settings/sources'
+      preLoaderRoute: typeof SettingsSourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports/tenders/$label': {
       id: '/reports/tenders/$label'
       path: '/reports/tenders/$label'
@@ -217,13 +237,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ActivityRoute: ActivityRoute,
   ApprovalsRoute: ApprovalsRoute,
-  ChatRoute: ChatRoute,
+  AuditRoute: AuditRoute,
   MemoryRoute: MemoryRoute,
   ResultsRoute: ResultsRoute,
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
+  SettingsKnowledgeRoute: SettingsKnowledgeRoute,
+  SettingsSourcesRoute: SettingsSourcesRoute,
   ReportsTendersLabelRoute: ReportsTendersLabelRoute,
 }
 export const routeTree = rootRouteImport

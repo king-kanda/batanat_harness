@@ -15,13 +15,14 @@ import appCss from '../styles.css?url'
 
 /** Page titles, keyed by route. Keeps the header honest without prop-drilling. */
 const TITLES: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Chat',
   '/approvals': 'Approvals',
   '/results': 'Results',
-  '/activity': 'Activity',
+  '/audit': 'Audit logs',
   '/rules': 'Rules',
   '/memory': 'Memory',
-  '/chat': 'Chat',
+  '/settings/knowledge': 'Knowledge base',
+  '/settings/sources': 'Sources & schedule',
   '/settings/connections': 'Connections',
 }
 

@@ -8,10 +8,11 @@ CRM, and both go through the approval queue.
 from __future__ import annotations
 
 import uuid
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import selectinload
@@ -26,6 +27,7 @@ from batanat_api.contracts.operations import (
     ChatResponse,
     DashboardView,
     DiffLine,
+    DocumentView,
     EmailView,
     FeedbackRequest,
     MemoryView,
@@ -567,6 +569,77 @@ async def delete_memory(memory_id: uuid.UUID, session: SessionDep, user: Current
 
     if not await forget(session, user.id, memory_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such memory.")
+
+
+# --- knowledge base ---------------------------------------------------------
+
+
+@router.get("/knowledge", response_model=list[DocumentView])
+async def list_knowledge(session: SessionDep, user: CurrentUser) -> list[DocumentView]:
+    from batanat_api.knowledge.documents import list_documents
+
+    return [DocumentView(**asdict(summary)) for summary in await list_documents(session, user.id)]
+
+
+@router.post("/knowledge", response_model=DocumentView)
+async def upload_knowledge(
+    session: SessionDep,
+    user: CurrentUser,
+    # B008 is about mutable defaults; FastAPI's File/Form markers are the
+    # documented way to declare multipart parts, so the rule is silenced here
+    # rather than worked around.
+    file: UploadFile = File(...),  # noqa: B008
+    trust_tag: str = Form(default="user_asserted"),  # noqa: B008
+) -> DocumentView:
+    """Upload a document into semantic memory.
+
+    `trust_tag` is the caller's declaration about provenance, and it is load
+    bearing: `user_asserted` content can inform the agent directly, while
+    `untrusted_external` is retrievable but only ever rendered as quoted data.
+    A third-party PDF can carry the same injection text an email can.
+    """
+    from batanat_api.knowledge.documents import (
+        EmptyDocumentError,
+        UnsupportedDocumentError,
+        ingest_document,
+    )
+
+    try:
+        tag = enums.TrustTag(trust_tag)
+    except ValueError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"trust_tag must be one of {[t.value for t in enums.TrustTag]}.",
+        ) from None
+
+    if tag is enums.TrustTag.system_derived:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "system_derived is reserved for things this system observed; an upload is not one.",
+        )
+
+    data = await file.read()
+    try:
+        summary = await ingest_document(
+            session,
+            user_id=user.id,
+            filename=file.filename or "upload",
+            content_type=file.content_type or "",
+            data=data,
+            trust_tag=tag,
+        )
+    except (UnsupportedDocumentError, EmptyDocumentError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
+
+    return DocumentView(**asdict(summary))
+
+
+@router.delete("/knowledge/{document_id}", status_code=204)
+async def delete_knowledge(document_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> None:
+    from batanat_api.knowledge.documents import delete_document
+
+    if not await delete_document(session, user.id, document_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such document.")
 
 
 # --- reports -----------------------------------------------------------------

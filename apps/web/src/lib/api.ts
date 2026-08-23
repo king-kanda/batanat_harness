@@ -17,6 +17,7 @@ import type {
   DashboardView,
   DiffLine,
   DisconnectResult,
+  DocumentView,
   EmailView,
   HealthResponse,
   MemoryView,
@@ -56,7 +57,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         'x-run-id': runId,
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...(init?.body && !(init.body instanceof FormData)
+          ? { 'content-type': 'application/json' }
+          : {}),
         ...init?.headers,
       },
     })
@@ -142,6 +145,19 @@ export const api = {
     list: (search?: string) =>
       request<MemoryView[]>(`/api/memories${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     remove: (id: string) => request<void>(`/api/memories/${id}`, { method: 'DELETE' }),
+  },
+
+  knowledge: {
+    list: () => request<DocumentView[]>('/api/knowledge'),
+    upload: (file: File, trustTag: string) => {
+      // multipart: no content-type header — the browser sets the boundary.
+      const body = new FormData()
+      body.append('file', file)
+      body.append('trust_tag', trustTag)
+      return request<DocumentView>('/api/knowledge', { method: 'POST', body })
+    },
+    remove: (documentId: string) =>
+      request<void>(`/api/knowledge/${documentId}`, { method: 'DELETE' }),
   },
 
   reports: {

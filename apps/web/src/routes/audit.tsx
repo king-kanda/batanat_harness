@@ -9,9 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/com
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 
-export const Route = createFileRoute('/activity')({ component: Activity })
+export const Route = createFileRoute('/audit')({ component: AuditLog })
 
-function Activity() {
+function AuditLog() {
   const runs = useQuery({ queryKey: ['runs'], queryFn: api.runs.list })
   const policy = useQuery({ queryKey: ['policy'], queryFn: api.policy })
 
@@ -56,8 +56,11 @@ function Activity() {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Runs</CardTitle>
-            <CardDescription>Expand a run to see every tool call it made.</CardDescription>
+            <CardTitle>Run log</CardTitle>
+            <CardDescription>
+              Every run the harness has made. Expand one to see each tool call, its
+              arguments, its result and what it cost.
+            </CardDescription>
           </div>
         </CardHeader>
         <div>

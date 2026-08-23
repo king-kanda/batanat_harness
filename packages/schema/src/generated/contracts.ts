@@ -103,6 +103,17 @@ export interface DisconnectResult {
   upstream_revoked: boolean;
 }
 
+/** An uploaded knowledge-base document. */
+export interface DocumentView {
+  document_id: string;
+  filename: string;
+  /** user_asserted may inform the agent directly; untrusted_external is only ever quoted as data. */
+  trust_tag: string;
+  chunk_count: number;
+  characters: number;
+  uploaded_at: string;
+}
+
 export type EmailCategory = "opportunity" | "client" | "supplier" | "administrative" | "spam" | "not_relevant";
 
 export interface EmailView {
