@@ -85,6 +85,11 @@ Treat as **client** when it concerns an engagement already under way, as
 **supplier** when it is inbound from a vendor, and as **administrative** for
 invoices, statements, and scheduling.
 
+## When one message is not enough
+If a message is a reply with little context, or refers to a deadline or document
+discussed earlier, read the whole thread before classifying it. A tender
+invitation is often the fourth message in a chain.
+
 ## Priority
 - **high** — a deadline within 14 days, a named procuring entity, or a direct
   request addressed to Martin. These interrupt: they fire a WhatsApp alert.

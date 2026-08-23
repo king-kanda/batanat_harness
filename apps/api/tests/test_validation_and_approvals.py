@@ -390,3 +390,76 @@ def test_clean_body_leaves_a_short_message_alone() -> None:
     text, truncated = clean_body("Can you quote for 200 solar panels?")
     assert text == "Can you quote for 200 solar panels?"
     assert truncated is False
+
+
+# --- thread rendering --------------------------------------------------------
+
+
+class _Msg:
+    """Just enough of a GmailMessage for render_thread."""
+
+    def __init__(self, sender: str, body: str, when: datetime | None = None):
+        self.from_name = sender
+        self.from_address = f"{sender.lower().replace(' ', '.')}@example.com"
+        self.received_at = when or NOW
+        self.body = body
+
+
+def test_a_thread_renders_oldest_first_with_attribution() -> None:
+    from batanat_api.gmail.cleaning import render_thread
+
+    transcript, truncated = render_thread(
+        [
+            _Msg("Jane Doe", "We are preparing a tender for switchgear."),
+            _Msg("Martin", "Please send the specification."),
+            _Msg("Jane Doe", "Attached. Closing 15 September."),
+        ]
+    )
+
+    assert truncated is False
+    assert transcript.index("Jane Doe") < transcript.index("Martin")
+    assert "[1]" in transcript and "[3]" in transcript
+    assert "Closing 15 September." in transcript
+
+
+def test_rendering_a_thread_strips_the_repeated_quoting() -> None:
+    """The point of reading the thread: each reply re-quotes everything above it.
+
+    Dropping the quotes gives the model the whole conversation for a fraction of
+    the tokens, and shrinks how much attacker-controlled text is in play.
+    """
+    from batanat_api.gmail.cleaning import render_thread
+
+    original = "We are preparing a tender for 33kV switchgear."
+    reply_with_quotes = (
+        "Please send the specification.\n\n"
+        "On Mon, 4 Aug 2026 at 10:04, Jane <jane@x.com> wrote:\n"
+        f"> {original}\n> " + "> padding padding padding\n" * 50
+    )
+
+    transcript, _ = render_thread([_Msg("Jane", original), _Msg("Martin", reply_with_quotes)])
+
+    assert "Please send the specification." in transcript
+    assert original in transcript  # once, from the real message
+    assert transcript.count(original) == 1
+    assert "padding" not in transcript
+    assert len(transcript) < len(reply_with_quotes)
+
+
+def test_a_long_thread_keeps_the_newest_and_says_what_it_dropped() -> None:
+    """The ask is usually at the end; silence about the drop would be worse."""
+    from batanat_api.gmail.cleaning import render_thread
+
+    messages = [_Msg(f"Person {i}", f"Message number {i}. " + "x" * 400) for i in range(30)]
+    transcript, truncated = render_thread(messages, max_chars=2000)
+
+    assert truncated is True
+    assert "omitted" in transcript
+    assert "Message number 29." in transcript
+    assert "Message number 0." not in transcript
+
+
+def test_an_empty_thread_is_not_an_error() -> None:
+    from batanat_api.gmail.cleaning import render_thread
+
+    assert render_thread([]) == ("", False)

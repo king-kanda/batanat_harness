@@ -79,3 +79,50 @@ def clean_body(body: str, *, max_chars: int = DEFAULT_MAX_CHARS) -> tuple[str, b
     """Quoted history and signatures out, then truncate. Returns (text, truncated)."""
     stripped = collapse_blank_lines(strip_signature(strip_quoted(body or "")))
     return truncate(stripped, max_chars)
+
+
+# --- threads -----------------------------------------------------------------
+
+#: A whole thread gets a bigger budget than one message, but not an unbounded one.
+DEFAULT_THREAD_MAX_CHARS = 12_000
+#: Per message inside a thread. Tighter, so one long message cannot crowd out the rest.
+DEFAULT_MESSAGE_IN_THREAD_MAX_CHARS = 1_500
+
+
+def render_thread(messages, *, max_chars: int = DEFAULT_THREAD_MAX_CHARS) -> tuple[str, bool]:
+    """Render a Gmail thread as a compact transcript.
+
+    Quoted history is stripped from each message, which matters more here than
+    anywhere else: in a ten-message thread every reply re-quotes everything
+    above it, so the same text arrives ten times. Reading the real thread and
+    dropping the quotes gives the model the whole conversation for a fraction of
+    the tokens — and shrinks how much attacker-controlled text is in play.
+
+    Returns `(transcript, truncated)`.
+    """
+    if not messages:
+        return "", False
+
+    parts: list[str] = []
+    for index, message in enumerate(messages, start=1):
+        body, _ = clean_body(message.body, max_chars=DEFAULT_MESSAGE_IN_THREAD_MAX_CHARS)
+        sender = message.from_name or message.from_address or "unknown sender"
+        when = message.received_at.strftime("%d %b %Y %H:%M") if message.received_at else "undated"
+        parts.append(f"[{index}] {sender} — {when}\n{body or '(no text)'}")
+
+    transcript = "\n\n".join(parts)
+    if len(transcript) <= max_chars:
+        return transcript, False
+
+    # Keep the newest messages: the ask is usually at the end.
+    kept: list[str] = []
+    total = 0
+    for part in reversed(parts):
+        if total + len(part) > max_chars:
+            break
+        kept.insert(0, part)
+        total += len(part)
+
+    dropped = len(parts) - len(kept)
+    header = f"[{dropped} earlier message(s) omitted — the full thread is in the archive]\n\n"
+    return header + "\n\n".join(kept), True

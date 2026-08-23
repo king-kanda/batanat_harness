@@ -172,9 +172,7 @@ async def test_no_cc_key_is_sent_when_there_is_no_cc(
     assert "cc" not in captured["json"]["personalizations"][0]
 
 
-async def test_202_is_the_success_code_not_200(
-    monkeypatch: pytest.MonkeyPatch, configured
-) -> None:
+async def test_202_is_the_success_code_not_200(monkeypatch: pytest.MonkeyPatch, configured) -> None:
     """SendGrid accepts with 202. Treating only 200 as success would report
     every successful send as a failure."""
     _capture(monkeypatch, _FakeResponse(202))

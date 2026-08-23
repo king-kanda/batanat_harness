@@ -102,7 +102,12 @@ async def test_an_untrusted_run_is_never_offered_a_write_tool(session, user, bre
     )
 
     assert "commit_crm_write" not in model.tool_names_offered
-    assert set(model.tool_names_offered) == {"read_email", "classify_email", "propose_crm_entry"}
+    assert set(model.tool_names_offered) == {
+        "read_email",
+        "read_thread",
+        "classify_email",
+        "propose_crm_entry",
+    }
 
 
 async def test_a_trusted_run_is_offered_the_commit_tool(session, user, breaker) -> None:

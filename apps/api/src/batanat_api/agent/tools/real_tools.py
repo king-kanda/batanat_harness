@@ -121,6 +121,54 @@ async def read_emails(context: ToolContext, args: ReadEmailsArgs) -> dict[str, A
     return {"count": len(summaries), "emails": summaries}
 
 
+class ReadThreadArgs(BaseModel):
+    email_id: str = Field(description="Id of an email returned by read_email.")
+
+
+async def read_thread(context: ToolContext, args: ReadThreadArgs) -> dict[str, Any]:
+    """Read the whole conversation an email belongs to.
+
+    A single message is often not enough to classify: the tender invitation may
+    be the fourth reply, and the deadline may have been stated in the first.
+    Reading the thread also *reduces* the text involved — each reply re-quotes
+    everything above it, so the quoted copies are stripped and the real messages
+    used instead.
+    """
+    from batanat_api.gmail.cleaning import render_thread
+
+    email = (
+        await context.session.execute(
+            select(Email).where(
+                Email.id == uuid.UUID(args.email_id), Email.user_id == context.user_id
+            )
+        )
+    ).scalar_one_or_none()
+    if email is None:
+        raise ValueError(f"No email {args.email_id} for this user.")
+    if not email.gmail_thread_id:
+        raise ValueError("That email has no thread id recorded.")
+
+    client = GmailClient(context.session, context.user_id)
+    messages = await client.get_thread(email.gmail_thread_id)
+    transcript, truncated = render_thread(messages)
+
+    await archive(
+        RAW_TOOL_RESPONSES,
+        uuid.uuid4(),
+        {"thread_id": email.gmail_thread_id, "messages": [m.raw for m in messages]},
+        run_id=str(context.run_id),
+        tool_name="read_thread",
+    )
+
+    return {
+        "thread_id": email.gmail_thread_id,
+        "subject": email.subject,
+        "message_count": len(messages),
+        "truncated": truncated,
+        "transcript": transcript,
+    }
+
+
 class ClassifyEmailArgs(BaseModel):
     email_id: str = Field(description="Id returned by read_emails.")
     category: str = Field(
@@ -410,6 +458,16 @@ def register_all() -> None:
             ),
             args_model=ReadEmailsArgs,
             handler=read_emails,
+        ),
+        ToolSpec(
+            name="read_thread",
+            description=(
+                "Read the full conversation an email belongs to, oldest message first. "
+                "Use this when one message is not enough to judge — the deadline or the "
+                "actual ask is often earlier in the thread."
+            ),
+            args_model=ReadThreadArgs,
+            handler=read_thread,
         ),
         ToolSpec(
             name="classify_email",
