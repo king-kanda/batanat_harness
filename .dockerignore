@@ -1,0 +1,31 @@
+# Build context hygiene. Everything here either does not belong in an image or
+# would bust the layer cache on every commit.
+
+.git
+.gitignore
+**/.venv
+**/node_modules
+**/.output
+**/.nitro
+**/.vinxi
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# Never. The images take configuration from the environment at runtime.
+.env
+.env.*
+!.env.example
+
+# Project-local tooling that is rebuilt inside the image.
+.tools
+.claude
+.agents
+
+# Docs and scratch — not needed to run anything.
+docs
+*.md
+!README.md

@@ -13,6 +13,7 @@ running.
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from collections.abc import AsyncIterator
 from urllib.parse import urlsplit, urlunsplit
@@ -118,6 +119,15 @@ async def db_engine(postgres_available: bool):
     below, not from rebuilding the schema each time.
     """
     if not postgres_available:
+        # Skipping is right on a laptop with no Postgres running. It is wrong in
+        # CI, where a skipped suite is indistinguishable from a passing one and
+        # the pipeline goes green having tested almost nothing.
+        if os.getenv("CI") or os.getenv("REQUIRE_DATABASE"):
+            pytest.fail(
+                "Postgres is not reachable and this environment requires it. "
+                "Unset CI/REQUIRE_DATABASE to allow skipping.",
+                pytrace=False,
+            )
         pytest.skip("Postgres is not reachable; skipping database tests.")
 
     import asyncpg
