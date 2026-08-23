@@ -113,6 +113,11 @@ async def dispatch_tender_report(
         run_id=uuid.UUID(report["run_id"]) if report.get("run_id") else None,
     )
     if email_notification:
+        from batanat_api.notifications.email_sender import configured_recipients
+
+        recipients = configured_recipients()
+        email_notification.target = recipients.describe()
+
         html = build_report_email(report, permalink=permalink)
         sent, error = await send_email(
             user_id=user_id,
@@ -122,6 +127,7 @@ async def dispatch_tender_report(
         )
         await _mark(email_notification, sent=sent, error=error)
         outcome["email"] = "sent" if sent else f"failed: {error}"
+        outcome["email_recipients"] = recipients.describe()
 
     # --- whatsapp: a nudge, only when there is something to nudge about ---
     if tenders:
@@ -293,52 +299,15 @@ async def send_whatsapp_template(
 async def send_email(
     *, user_id: uuid.UUID, subject: str, html: str, session: AsyncSession
 ) -> tuple[bool, str | None]:
-    """Send the report through the connected Gmail account.
+    """Send the report through SendGrid.
 
-    Note the scope problem: the Gmail connection is `gmail.readonly`, which
-    cannot send. Sending needs either `gmail.send` added to the OAuth consent
-    screen (which re-triggers consent) or a transactional provider. Flagged in
-    TODO.md; until then this records the attempt and reports why it could not
-    send, rather than failing silently.
+    Deliberately not through Gmail: that connection is `gmail.readonly` by
+    design, so the agent can read the inbox and can never send from it. Reports
+    ride a separate credential with a separate blast radius.
+
+    Recipients come from `REPORT_TO` / `REPORT_CC` in the environment — never
+    from the agent, and never from anything it read.
     """
-    from batanat_api.security.token_vault import ConnectionNotFoundError, get_connection
+    from batanat_api.notifications import email_sender
 
-    try:
-        connection = await get_connection(session, user_id, enums.Provider.gmail)
-    except ConnectionNotFoundError:
-        return False, "No Gmail connection; cannot send the report."
-
-    if not any("gmail.send" in scope for scope in (connection.scopes or [])):
-        return False, (
-            "The Gmail connection is read-only (gmail.readonly). Add the gmail.send scope "
-            "or configure a transactional sender — see TODO.md."
-        )
-
-    import base64
-    from email.message import EmailMessage
-
-    import httpx
-
-    from batanat_api.security.token_vault import get_valid_access_token
-
-    message = EmailMessage()
-    message["To"] = connection.external_account
-    message["From"] = connection.external_account
-    message["Subject"] = subject
-    message.set_content("This report is best viewed as HTML.")
-    message.add_alternative(html, subtype="html")
-
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    token = await get_valid_access_token(session, user_id, enums.Provider.gmail)
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-                headers={"Authorization": f"Bearer {token}"},
-                json={"raw": raw},
-            )
-    except Exception as exc:  # noqa: BLE001
-        return False, f"{type(exc).__name__}: {exc}"
-
-    return (True, None) if response.is_success else (False, f"HTTP {response.status_code}")
+    return await email_sender.send_email(subject=subject, html=html)
