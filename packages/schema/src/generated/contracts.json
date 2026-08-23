@@ -1,5 +1,160 @@
 {
   "$defs": {
+    "ApprovalDiffEntry": {
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "current": {
+          "default": null,
+          "title": "Current"
+        },
+        "proposed": {
+          "default": null,
+          "title": "Proposed"
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "title": "ApprovalDiffEntry",
+      "type": "object"
+    },
+    "ApprovalStatus": {
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "executed",
+        "failed"
+      ],
+      "title": "ApprovalStatus",
+      "type": "string"
+    },
+    "ApprovalView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "module": {
+          "title": "Module",
+          "type": "string"
+        },
+        "operation": {
+          "title": "Operation",
+          "type": "string"
+        },
+        "record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Id"
+        },
+        "status": {
+          "$ref": "#/$defs/ApprovalStatus"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        },
+        "proposed_payload": {
+          "additionalProperties": true,
+          "title": "Proposed Payload",
+          "type": "object"
+        },
+        "diff": {
+          "items": {
+            "$ref": "#/$defs/ApprovalDiffEntry"
+          },
+          "title": "Diff",
+          "type": "array"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "hours_remaining": {
+          "title": "Hours Remaining",
+          "type": "number"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "executed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Executed At"
+        },
+        "execution_result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Result"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        }
+      },
+      "required": [
+        "id",
+        "module",
+        "operation",
+        "status",
+        "proposed_payload",
+        "diff",
+        "expires_at",
+        "hours_remaining",
+        "created_at"
+      ],
+      "title": "ApprovalView",
+      "type": "object"
+    },
     "AuthorizationUrl": {
       "properties": {
         "authorization_url": {
@@ -11,6 +166,67 @@
         "authorization_url"
       ],
       "title": "AuthorizationUrl",
+      "type": "object"
+    },
+    "ChatRequest": {
+      "properties": {
+        "message": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ChatRequest",
+      "type": "object"
+    },
+    "ChatResponse": {
+      "properties": {
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "reply": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reply"
+        },
+        "bound_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bound Tools",
+          "type": "array"
+        },
+        "tool_calls": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Tool Calls",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "run_id",
+        "reply",
+        "bound_tools",
+        "status"
+      ],
+      "title": "ChatResponse",
       "type": "object"
     },
     "ConnectionStatus": {
@@ -205,6 +421,102 @@
       "title": "ConnectionsPage",
       "type": "object"
     },
+    "DashboardView": {
+      "description": "Everything the dashboard needs, in one request.",
+      "properties": {
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "opportunities_today": {
+          "title": "Opportunities Today",
+          "type": "integer"
+        },
+        "tenders_today": {
+          "title": "Tenders Today",
+          "type": "integer"
+        },
+        "pending_approvals": {
+          "title": "Pending Approvals",
+          "type": "integer"
+        },
+        "connections_healthy": {
+          "title": "Connections Healthy",
+          "type": "integer"
+        },
+        "connections_total": {
+          "title": "Connections Total",
+          "type": "integer"
+        },
+        "connections_needing_attention": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Connections Needing Attention",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourceHealthView"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "next_runs": {
+          "items": {
+            "$ref": "#/$defs/ScheduledRunView"
+          },
+          "title": "Next Runs",
+          "type": "array"
+        },
+        "recent_runs": {
+          "items": {
+            "$ref": "#/$defs/RunView"
+          },
+          "title": "Recent Runs",
+          "type": "array"
+        },
+        "kill_switch": {
+          "default": false,
+          "title": "Kill Switch",
+          "type": "boolean"
+        },
+        "crm_dry_run": {
+          "default": true,
+          "title": "Crm Dry Run",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "generated_at",
+        "opportunities_today",
+        "tenders_today",
+        "pending_approvals",
+        "connections_healthy",
+        "connections_total"
+      ],
+      "title": "DashboardView",
+      "type": "object"
+    },
+    "DiffLine": {
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "title": "DiffLine",
+      "type": "object"
+    },
     "DisconnectResult": {
       "properties": {
         "disconnected": {
@@ -222,6 +534,163 @@
         "upstream_revoked"
       ],
       "title": "DisconnectResult",
+      "type": "object"
+    },
+    "EmailCategory": {
+      "enum": [
+        "opportunity",
+        "client",
+        "supplier",
+        "administrative",
+        "spam",
+        "not_relevant"
+      ],
+      "title": "EmailCategory",
+      "type": "string"
+    },
+    "EmailView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "from_address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From Address"
+        },
+        "from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From Name"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject"
+        },
+        "snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snippet"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Received At"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmailCategory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Priority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning"
+        },
+        "suggested_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Action"
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feedback"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "EmailView",
       "type": "object"
     },
     "ErrorResponse": {
@@ -260,6 +729,44 @@
         "error"
       ],
       "title": "ErrorResponse",
+      "type": "object"
+    },
+    "FeedbackRequest": {
+      "properties": {
+        "subject_type": {
+          "description": "email | tender",
+          "title": "Subject Type",
+          "type": "string"
+        },
+        "subject_id": {
+          "format": "uuid",
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "rating": {
+          "description": "up | down",
+          "title": "Rating",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "subject_type",
+        "subject_id",
+        "rating"
+      ],
+      "title": "FeedbackRequest",
       "type": "object"
     },
     "HealthResponse": {
@@ -312,6 +819,59 @@
       "title": "HealthResponse",
       "type": "object"
     },
+    "MemoryView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "trust_tag": {
+          "title": "Trust Tag",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "instruction_eligible": {
+          "description": "False for untrusted-derived memory, which is only ever quoted as data.",
+          "title": "Instruction Eligible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "layer",
+        "trust_tag",
+        "content",
+        "created_at",
+        "instruction_eligible"
+      ],
+      "title": "MemoryView",
+      "type": "object"
+    },
     "PairingCodeView": {
       "description": "A freshly issued WhatsApp pairing code.",
       "properties": {
@@ -355,6 +915,15 @@
       "title": "PairingCodeView",
       "type": "object"
     },
+    "Priority": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
     "Provider": {
       "enum": [
         "gmail",
@@ -388,6 +957,234 @@
         "configured"
       ],
       "title": "ProviderStatus",
+      "type": "object"
+    },
+    "ReportView": {
+      "description": "A tender report permalink page.",
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "lookback_hours": {
+          "title": "Lookback Hours",
+          "type": "integer"
+        },
+        "tenders": {
+          "items": {
+            "$ref": "#/$defs/TenderView"
+          },
+          "title": "Tenders",
+          "type": "array"
+        },
+        "failed_sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failed Sources",
+          "type": "array"
+        },
+        "rejections": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Rejections",
+          "type": "array"
+        },
+        "validation": {
+          "additionalProperties": true,
+          "title": "Validation",
+          "type": "object"
+        }
+      },
+      "required": [
+        "label",
+        "generated_at",
+        "lookback_hours",
+        "tenders"
+      ],
+      "title": "ReportView",
+      "type": "object"
+    },
+    "RunStatus": {
+      "enum": [
+        "running",
+        "succeeded",
+        "failed",
+        "refused",
+        "limit_exceeded"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "RunView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "trigger_type": {
+          "$ref": "#/$defs/TriggerType"
+        },
+        "trust_level": {
+          "$ref": "#/$defs/TrustLevel"
+        },
+        "bound_tools": {
+          "description": "Exactly the tools this run was handed, recorded before the model ran.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Bound Tools",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        },
+        "trigger_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Ref"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "token_cost": {
+          "default": 0,
+          "title": "Token Cost",
+          "type": "integer"
+        },
+        "iterations": {
+          "default": 0,
+          "title": "Iterations",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "skill_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill Version"
+        },
+        "tool_calls": {
+          "items": {
+            "$ref": "#/$defs/ToolCallView"
+          },
+          "title": "Tool Calls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "trigger_type",
+        "trust_level",
+        "bound_tools",
+        "status",
+        "started_at"
+      ],
+      "title": "RunView",
+      "type": "object"
+    },
+    "ScheduledRunView": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "next_run_at": {
+          "title": "Next Run At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "next_run_at"
+      ],
+      "title": "ScheduledRunView",
       "type": "object"
     },
     "ServiceHealth": {
@@ -449,6 +1246,390 @@
         "down"
       ],
       "title": "ServiceStatus",
+      "type": "string"
+    },
+    "SkillValidationView": {
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "SkillValidationView",
+      "type": "object"
+    },
+    "SkillVersionView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "is_active": {
+          "title": "Is Active",
+          "type": "boolean"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "checksum": {
+          "title": "Checksum",
+          "type": "string"
+        },
+        "created_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "is_active",
+        "content",
+        "checksum",
+        "created_at"
+      ],
+      "title": "SkillVersionView",
+      "type": "object"
+    },
+    "SourceHealth": {
+      "enum": [
+        "ok",
+        "degraded",
+        "failing"
+      ],
+      "title": "SourceHealth",
+      "type": "string"
+    },
+    "SourceHealthView": {
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "health": {
+          "$ref": "#/$defs/SourceHealth"
+        },
+        "last_ok_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Ok At"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "consecutive_failures": {
+          "default": 0,
+          "title": "Consecutive Failures",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "health"
+      ],
+      "title": "SourceHealthView",
+      "type": "object"
+    },
+    "TenderView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "reference_no": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference No"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "closing_date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Closing Date"
+        },
+        "estimated_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Value"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "county": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "County"
+        },
+        "first_seen_at": {
+          "format": "date-time",
+          "title": "First Seen At",
+          "type": "string"
+        },
+        "is_closed": {
+          "default": false,
+          "title": "Is Closed",
+          "type": "boolean"
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feedback"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "title",
+        "source_url",
+        "first_seen_at"
+      ],
+      "title": "TenderView",
+      "type": "object"
+    },
+    "ToolCallView": {
+      "description": "One audited tool call, as the Activity screen shows it.",
+      "properties": {
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "tool_name": {
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "token_cost": {
+          "default": 0,
+          "title": "Token Cost",
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "tool_name",
+        "arguments",
+        "started_at"
+      ],
+      "title": "ToolCallView",
+      "type": "object"
+    },
+    "TriggerType": {
+      "enum": [
+        "gmail_push",
+        "cron_tender",
+        "web_chat",
+        "whatsapp_inbound",
+        "approval_callback",
+        "maintenance"
+      ],
+      "title": "TriggerType",
+      "type": "string"
+    },
+    "TrustLevel": {
+      "description": "Determines which tools a run is allowed to be handed.\n\n`untrusted` \u2014 the payload originates outside the system (an email body,\na scraped page). Read tools and `propose_crm_entry` only.\n`trusted`   \u2014 the payload originates from an authenticated human.\n`system`    \u2014 internal machinery; usually no LLM at all.",
+      "enum": [
+        "untrusted",
+        "trusted",
+        "system"
+      ],
+      "title": "TrustLevel",
       "type": "string"
     },
     "WhatsAppLinkView": {

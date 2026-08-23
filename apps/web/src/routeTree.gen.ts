@@ -10,11 +10,48 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as MemoryRouteImport } from './routes/memory'
+import { Route as ResultsRouteImport } from './routes/results'
+import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
+import { Route as ReportsTendersLabelRouteImport } from './routes/reports.tenders.$label'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesRoute = RulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
@@ -22,31 +59,92 @@ const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
   path: '/settings/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsTendersLabelRoute = ReportsTendersLabelRouteImport.update({
+  id: '/reports/tenders/$label',
+  path: '/reports/tenders/$label',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/approvals': typeof ApprovalsRoute
+  '/chat': typeof ChatRoute
+  '/memory': typeof MemoryRoute
+  '/results': typeof ResultsRoute
+  '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/approvals': typeof ApprovalsRoute
+  '/chat': typeof ChatRoute
+  '/memory': typeof MemoryRoute
+  '/results': typeof ResultsRoute
+  '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/approvals': typeof ApprovalsRoute
+  '/chat': typeof ChatRoute
+  '/memory': typeof MemoryRoute
+  '/results': typeof ResultsRoute
+  '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
+  '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings/connections'
+  fullPaths:
+    | '/'
+    | '/activity'
+    | '/approvals'
+    | '/chat'
+    | '/memory'
+    | '/results'
+    | '/rules'
+    | '/settings/connections'
+    | '/reports/tenders/$label'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings/connections'
-  id: '__root__' | '/' | '/settings/connections'
+  to:
+    | '/'
+    | '/activity'
+    | '/approvals'
+    | '/chat'
+    | '/memory'
+    | '/results'
+    | '/rules'
+    | '/settings/connections'
+    | '/reports/tenders/$label'
+  id:
+    | '__root__'
+    | '/'
+    | '/activity'
+    | '/approvals'
+    | '/chat'
+    | '/memory'
+    | '/results'
+    | '/rules'
+    | '/settings/connections'
+    | '/reports/tenders/$label'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
+  ApprovalsRoute: typeof ApprovalsRoute
+  ChatRoute: typeof ChatRoute
+  MemoryRoute: typeof MemoryRoute
+  ResultsRoute: typeof ResultsRoute
+  RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
+  ReportsTendersLabelRoute: typeof ReportsTendersLabelRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +156,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rules': {
+      id: '/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/connections': {
       id: '/settings/connections'
       path: '/settings/connections'
@@ -65,12 +205,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/tenders/$label': {
+      id: '/reports/tenders/$label'
+      path: '/reports/tenders/$label'
+      fullPath: '/reports/tenders/$label'
+      preLoaderRoute: typeof ReportsTendersLabelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
+  ApprovalsRoute: ApprovalsRoute,
+  ChatRoute: ChatRoute,
+  MemoryRoute: MemoryRoute,
+  ResultsRoute: ResultsRoute,
+  RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
+  ReportsTendersLabelRoute: ReportsTendersLabelRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

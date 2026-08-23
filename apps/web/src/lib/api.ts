@@ -10,12 +10,23 @@
  */
 
 import type {
+  ApprovalView,
   AuthorizationUrl,
+  ChatResponse,
   ConnectionsPage,
+  DashboardView,
+  DiffLine,
   DisconnectResult,
+  EmailView,
   HealthResponse,
+  MemoryView,
   PairingCodeView,
   Provider,
+  ReportView,
+  RunView,
+  SkillValidationView,
+  SkillVersionView,
+  TenderView,
 } from '@batanat/schema'
 
 export const API_BASE_URL: string =
@@ -50,14 +61,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     })
   } catch {
-    // Network-level failure: the API is not running or CORS blocked it.
     throw new ApiError(`Cannot reach the API at ${API_BASE_URL}`, undefined, runId)
   }
 
   if (!response.ok && response.status !== 503) {
-    // The API returns a readable `detail` on refusals — surface it verbatim
-    // rather than a generic failure, since these are usually actionable
-    // ("Zoho is not configured", "rate limit reached").
+    // The API returns a readable `detail` on refusals — surface it verbatim,
+    // since these are usually actionable ("Zoho is not configured").
     let detail = `${init?.method ?? 'GET'} ${path} failed`
     try {
       const body = await response.json()
@@ -72,23 +81,76 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+const post = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined })
+
 export const api = {
-  /** Aggregate health. Returns a body on 503 too — a down service is data, not an error. */
   health: () => request<HealthResponse>('/api/health'),
+  dashboard: () => request<DashboardView>('/api/dashboard'),
+  policy: () => request<Record<string, { trust: string; tools: string[] }>>('/api/policy'),
 
   connections: {
     list: () => request<ConnectionsPage>('/api/connections'),
-
     authorize: (provider: Provider) =>
-      request<AuthorizationUrl>(`/api/connections/${provider}/authorize`, { method: 'POST' }),
+      post<AuthorizationUrl>(`/api/connections/${provider}/authorize`),
+    disconnect: (id: string) =>
+      request<DisconnectResult>(`/api/connections/${id}`, { method: 'DELETE' }),
+    pairingCode: () => post<PairingCodeView>('/api/connections/whatsapp/pairing-code'),
+    unlinkNumber: (id: string) =>
+      request<void>(`/api/connections/whatsapp/links/${id}`, { method: 'DELETE' }),
+  },
 
-    disconnect: (connectionId: string) =>
-      request<DisconnectResult>(`/api/connections/${connectionId}`, { method: 'DELETE' }),
+  runs: {
+    list: () => request<RunView[]>('/api/runs'),
+    get: (id: string) => request<RunView>(`/api/runs/${id}`),
+  },
 
-    pairingCode: () =>
-      request<PairingCodeView>('/api/connections/whatsapp/pairing-code', { method: 'POST' }),
+  results: {
+    emails: () => request<EmailView[]>('/api/emails'),
+    tenders: (includeClosed = false) =>
+      request<TenderView[]>(`/api/tenders?include_closed=${includeClosed}`),
+    feedback: (body: {
+      subject_type: string
+      subject_id: string
+      rating: string
+      reason?: string
+    }) => request<void>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
+  },
 
-    unlinkNumber: (linkId: string) =>
-      request<void>(`/api/connections/whatsapp/links/${linkId}`, { method: 'DELETE' }),
+  approvals: {
+    list: () => request<ApprovalView[]>('/api/approvals'),
+    approve: (id: string, editedPayload?: Record<string, unknown>) =>
+      post<Record<string, unknown>>(`/api/approvals/${id}/approve`, editedPayload),
+    reject: (id: string, reason?: string) =>
+      post<Record<string, unknown>>(
+        `/api/approvals/${id}/reject${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`,
+      ),
+  },
+
+  skill: {
+    versions: () => request<SkillVersionView[]>('/api/skill'),
+    validate: (content: string) => post<SkillValidationView>('/api/skill/validate', { content }),
+    publish: (content: string, notes?: string) =>
+      post<SkillVersionView>('/api/skill', { content, notes }),
+    rollback: (version: number) => post<SkillVersionView>(`/api/skill/${version}/rollback`),
+    diff: (oldVersion: number, newVersion: number) =>
+      request<DiffLine[]>(`/api/skill/diff?old=${oldVersion}&new=${newVersion}`),
+  },
+
+  memories: {
+    list: (search?: string) =>
+      request<MemoryView[]>(`/api/memories${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+    remove: (id: string) => request<void>(`/api/memories/${id}`, { method: 'DELETE' }),
+  },
+
+  reports: {
+    tenders: (label: string) => request<ReportView>(`/api/reports/tenders/${label}`),
+  },
+
+  chat: (message: string) => post<ChatResponse>('/api/chat', { message }),
+
+  sync: {
+    gmail: () => post<Record<string, unknown>>('/api/sync/gmail'),
+    tenders: () => post<Record<string, unknown>>('/api/sync/tenders'),
   },
 }

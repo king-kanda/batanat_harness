@@ -35,6 +35,23 @@ SENSITIVE_KEY_PARTS = (
 )
 
 
+#: Keys that contain a sensitive-looking substring but hold no secret. Without
+#: this, "token_cost" is redacted and the audit trail loses its cost telemetry.
+SAFE_KEYS = frozenset(
+    {
+        "token_cost",
+        "token_budget",
+        "tokens",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "token_count",
+        "refresh_interval",
+        "refreshed",
+    }
+)
+
+
 def _redact(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Replace values of sensitive-looking keys, recursively."""
 
@@ -67,6 +84,8 @@ def _is_sensitive(key: Any) -> bool:
     if not isinstance(key, str):
         return False
     lowered = key.lower()
+    if lowered in SAFE_KEYS:
+        return False
     return any(part in lowered for part in SENSITIVE_KEY_PARTS)
 
 

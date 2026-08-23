@@ -21,6 +21,25 @@ from batanat_api.contracts.health import (
     ServiceHealth,
     ServiceStatus,
 )
+from batanat_api.contracts.operations import (
+    ApprovalDiffEntry,
+    ApprovalView,
+    ChatRequest,
+    ChatResponse,
+    DashboardView,
+    DiffLine,
+    EmailView,
+    FeedbackRequest,
+    MemoryView,
+    ReportView,
+    RunView,
+    ScheduledRunView,
+    SkillValidationView,
+    SkillVersionView,
+    SourceHealthView,
+    TenderView,
+    ToolCallView,
+)
 
 EXPORTED_MODELS = [
     ServiceHealth,
@@ -33,6 +52,23 @@ EXPORTED_MODELS = [
     AuthorizationUrl,
     PairingCodeView,
     DisconnectResult,
+    ToolCallView,
+    RunView,
+    ApprovalDiffEntry,
+    ApprovalView,
+    EmailView,
+    TenderView,
+    SourceHealthView,
+    ScheduledRunView,
+    DashboardView,
+    SkillVersionView,
+    SkillValidationView,
+    DiffLine,
+    MemoryView,
+    ReportView,
+    FeedbackRequest,
+    ChatRequest,
+    ChatResponse,
 ]
 
 __all__ = [

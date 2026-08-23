@@ -12,8 +12,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from batanat_api.agent import tools as _tools  # noqa: F401 — registers every tool
 from batanat_api.agent.capabilities import audit_policy, validate_policy
-from batanat_api.agent.tools import placeholders  # noqa: F401 — registers tools
+from batanat_api.api.operations import router as operations_router
 from batanat_api.config import get_settings
 from batanat_api.connections.router import router as connections_router
 from batanat_api.connections.service import register_refreshers
@@ -25,6 +26,7 @@ from batanat_api.core.run_context import get_run_id
 from batanat_api.db.mongo import ensure_indexes
 from batanat_api.health.router import router as health_router
 from batanat_api.version import __version__
+from batanat_api.webhooks.gmail import router as gmail_webhook_router
 from batanat_api.webhooks.whatsapp import router as whatsapp_webhook_router
 
 log = get_logger(__name__)
@@ -69,7 +71,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             detail="TOKEN_ENCRYPTION_KEY is unset; connections cannot be stored.",
         )
 
+    # Vector collection and cron jobs. Both tolerate being unavailable: the
+    # health page is how the operator finds out, not a failed boot.
+    try:
+        from batanat_api.memory.store import ensure_collection
+
+        await ensure_collection()
+    except Exception as exc:  # noqa: BLE001
+        log.error("memory.collection.failed", error=f"{type(exc).__name__}: {exc}")
+
+    scheduler = None
+    if settings.enable_scheduler:
+        try:
+            from batanat_api.scheduler.jobs import start_scheduler
+
+            scheduler = start_scheduler()
+        except Exception as exc:  # noqa: BLE001
+            log.error("scheduler.start_failed", error=f"{type(exc).__name__}: {exc}")
+
     yield
+
+    if scheduler is not None:
+        from batanat_api.scheduler.jobs import stop_scheduler
+
+        stop_scheduler()
     log.info("api.shutdown", version=__version__)
 
 
@@ -98,6 +123,8 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(connections_router)
     app.include_router(whatsapp_webhook_router)
+    app.include_router(gmail_webhook_router)
+    app.include_router(operations_router)
 
     @app.exception_handler(Exception)
     async def unhandled(_request: Request, exc: Exception) -> JSONResponse:

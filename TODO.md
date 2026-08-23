@@ -10,6 +10,26 @@ that gets committed.
 
 ---
 
+> **Status:** phases 0–9 are built. Everything below is what I cannot do for you.
+> The build works today without any of it — run `make demo` for a full working
+> system with zero credentials. These items turn the demo into the real thing.
+
+---
+
+## 0. Quick wins — do these first
+
+- [ ] `ANTHROPIC_API_KEY` in `.env`. **Nothing classifies or chats without it.**
+      This is the single highest-impact item on the page.
+- [ ] `TAVILY_API_KEY` in `.env`. Turns on the search fallback that covers the
+      four scrapers that cannot be scraped (see section 9).
+- [ ] Set `CRM_DRY_RUN=false` when you want approved writes to actually reach
+      Zoho. It ships `true`, so today an approval is logged and not sent.
+- [ ] Set `ENABLE_SCHEDULER=true` to turn on the 11:00/17:00 EAT tender sweeps
+      and the nightly maintenance job. Off by default so a one-off script never
+      starts cron.
+
+---
+
 ## 1. Decisions I need from you
 
 - [ ] **Single user or multi-tenant?** The schema supports many users. If this is only ever Martin,
@@ -133,6 +153,58 @@ finds tenders and a system that finds *your* tenders.
 - [ ] **Confirm the tender source list:** PPIP (tenders.go.ke), KPLC, KenGen, KETRACO, REREC.
       Anything missing? EPRA, county portals, Rural Electrification, ERC?
 - [ ] Do any of those sites need a **login** to see tenders?
+
+---
+
+## 9. Scrapers — a decision, not just a credential
+
+Verified live: only **REREC** serves server-rendered HTML (157 tenders parsed).
+**KPLC, KenGen, KETRACO and PPIP** render their tender listings client-side, so
+what we receive is page chrome and JavaScript with no tenders in it. Run
+`make sources` any time for the current truth.
+
+- [ ] **Accept the search fallback** (cheapest): set `TAVILY_API_KEY` and those
+      four are covered by search. Worse signal — results lag, and reference
+      numbers and closing dates usually are not exposed.
+- [ ] **Or approve a headless browser** (Playwright, ~400MB) so they can be
+      scraped properly. Real cost in fragility and image size; I did not add it
+      unilaterally.
+- [ ] **Or find their JSON endpoints** — each of those sites fetches its own
+      tenders over XHR. Undocumented and changes without notice, but cheap while
+      it works. I can investigate if you want.
+- [ ] **KPLC robots.txt:** it disallows named AI crawlers (ClaudeBot, GPTBot)
+      while allowing `User-agent: *` with `Content-Signal: use=reference`. Our
+      scraper declares itself, is not one of those, and does not train on the
+      content. Confirm you are comfortable, or say the word and I will disable
+      that source.
+
+---
+
+## 10. Two dependencies added beyond the agreed stack
+
+Both need a yes or a no from you.
+
+- [ ] **`segno`** — pure Python, zero dependencies. Renders the WhatsApp pairing
+      QR code server-side. The PRD asked for a QR; nothing in the stack could
+      make one.
+- [ ] **`beautifulsoup4` + `lxml`** — HTML parsing for the scrapers. The stack
+      list named no parser, and scraping is a core requirement.
+
+Say the word on either and I will remove it.
+
+---
+
+## 11. Email delivery — a scope problem worth knowing about
+
+The Gmail connection requests `gmail.readonly`, which **cannot send email**. The
+tender report therefore has nowhere to go today: the dispatcher records the
+attempt and reports why it could not send, rather than failing silently.
+
+- [ ] **Either** add `gmail.send` to the OAuth consent screen (re-triggers
+      consent, and widens what the token can do)
+- [ ] **Or** give me a transactional sender (Resend, Postmark, SES) — my
+      recommendation: reports then come from a system address rather than
+      Martin's mailbox, and read-only Gmail stays read-only.
 
 ---
 

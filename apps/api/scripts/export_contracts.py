@@ -88,7 +88,11 @@ def ts_type(node: dict[str, Any]) -> str:
     if node_type in SCALARS:
         return SCALARS[node_type]
 
-    if not node:  # empty schema == Any
+    # A node carrying no type information at all is `Any` on the Python side
+    # (e.g. `field: Any = None`), which is `unknown` here. Only a node that
+    # *claims* a type we do not understand is an error worth raising on.
+    TYPE_BEARING = {"type", "$ref", "enum", "const", "anyOf", "oneOf", "allOf", "items"}
+    if not (TYPE_BEARING & node.keys()):
         return "unknown"
 
     raise ValueError(f"Cannot express JSON Schema node as TypeScript: {node!r}")
