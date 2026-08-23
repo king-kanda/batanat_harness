@@ -31,6 +31,20 @@ config.set_main_option("sqlalchemy.url", to_async_dsn(get_settings().database_ur
 
 target_metadata = Base.metadata
 
+#: Tables created and owned by libraries, not by our models. Autogenerate sees
+#: them in the database, does not see them in `Base.metadata`, and concludes
+#: they should be dropped — which silently destroyed LangGraph's checkpoints
+#: once already. Anything here is invisible to autogenerate.
+FOREIGN_TABLE_PREFIXES = ("checkpoint",)
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    if type_ == "table" and name and name.startswith(FOREIGN_TABLE_PREFIXES):
+        return False
+    if type_ == "index" and name and name.startswith(FOREIGN_TABLE_PREFIXES):
+        return False
+    return True
+
 
 def run_migrations_offline() -> None:
     context.configure(
@@ -40,6 +54,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -51,6 +66,7 @@ def do_run_migrations(connection: Connection) -> None:
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

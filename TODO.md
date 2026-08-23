@@ -159,8 +159,10 @@ finds tenders and a system that finds *your* tenders.
       rather than wait for the digest?
 - [ ] **Any past won/lost deals** you are willing to share. These become semantic memory in
       Phase 8 and materially improve relevance scoring.
-- [ ] **Confirm the tender source list:** PPIP (tenders.go.ke), KPLC, KenGen, KETRACO, REREC.
-      Anything missing? EPRA, county portals, Rural Electrification, ERC?
+- [x] **Confirm the tender source list** — you can now add sites yourself under
+      Settings → Sources & schedule → Add a site. Point it at the tender listing
+      page; the sweep picks it up on the next run and the row reports whether it
+      parsed. The shipped five can be disabled but not deleted.
 - [ ] Do any of those sites need a **login** to see tenders?
 
 ---

@@ -36,7 +36,7 @@ from batanat_api.gmail.client import GmailClient
 from batanat_api.tenders.base import PoliteClient
 from batanat_api.tenders.ingest import ingest_report, record_source_health
 from batanat_api.tenders.search_source import WebSearchSource
-from batanat_api.tenders.sources import build_sources
+from batanat_api.tenders.sources import build_sources_from_db
 
 log = get_logger(__name__)
 
@@ -235,7 +235,7 @@ class ScrapeTendersArgs(BaseModel):
 async def scrape_tenders(context: ToolContext, args: ScrapeTendersArgs) -> dict[str, Any]:
     client = PoliteClient()
     reports = []
-    for source in build_sources(args.sources or None):
+    for source in await build_sources_from_db(context.session, args.sources or None):
         report = await source.collect(client)
         await record_source_health(context.session, report)
         if report.ok:

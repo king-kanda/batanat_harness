@@ -7,6 +7,7 @@ CRM, and both go through the approval queue.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -37,6 +38,8 @@ from batanat_api.contracts.operations import (
     SkillValidationView,
     SkillVersionView,
     SourceHealthView,
+    TenderSourceRequest,
+    TenderSourceView,
     TenderView,
     ToolCallView,
 )
@@ -569,6 +572,135 @@ async def delete_memory(memory_id: uuid.UUID, session: SessionDep, user: Current
 
     if not await forget(session, user.id, memory_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such memory.")
+
+
+# --- tender sources ----------------------------------------------------------
+
+
+def _source_view(row: TenderSourceRow) -> TenderSourceView:
+    return TenderSourceView(
+        key=row.key,
+        name=row.name,
+        entity=row.entity,
+        listing_url=row.listing_url or row.base_url,
+        fallback_urls=list(row.fallback_urls or []),
+        is_enabled=row.is_enabled,
+        is_custom=row.is_custom,
+        health=row.health,
+        last_ok_at=row.last_ok_at,
+        last_error=row.last_error,
+        consecutive_failures=row.consecutive_failures,
+    )
+
+
+@router.get("/sources", response_model=list[TenderSourceView])
+async def list_sources(session: SessionDep, user: CurrentUser) -> list[TenderSourceView]:
+    rows = (
+        (await session.execute(select(TenderSourceRow).order_by(TenderSourceRow.key)))
+        .scalars()
+        .all()
+    )
+    return [_source_view(row) for row in rows]
+
+
+@router.post("/sources", response_model=TenderSourceView, status_code=201)
+async def create_source(
+    body: TenderSourceRequest, session: SessionDep, user: CurrentUser
+) -> TenderSourceView:
+    """Add a site to the sweep.
+
+    The key is derived from the host rather than asked for: it is an internal
+    identifier, and making someone invent one is a question with no good answer.
+    """
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(body.listing_url)
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "The listing URL must be a full http(s) address, e.g. https://example.co.ke/tenders.",
+        )
+
+    host = parts.netloc.lower().removeprefix("www.")
+    key = re.sub(r"[^a-z0-9]+", "-", host.split(".")[0])[:50] or "source"
+
+    # Keys must be unique; suffix rather than reject, since two sites can share
+    # a first label (kplc.co.ke and kplc.com).
+    existing = {row for row in (await session.execute(select(TenderSourceRow.key))).scalars().all()}
+    candidate, suffix = key, 2
+    while candidate in existing:
+        candidate = f"{key}-{suffix}"
+        suffix += 1
+
+    row = TenderSourceRow(
+        key=candidate,
+        name=body.name,
+        entity=body.entity or body.name,
+        base_url=f"{parts.scheme}://{parts.netloc}",
+        listing_url=body.listing_url,
+        fallback_urls=[],
+        adapter="TableTenderSource",
+        is_enabled=body.is_enabled,
+        is_custom=True,
+        health=enums.SourceHealth.ok,
+    )
+    session.add(row)
+    await session.flush()
+
+    log.info("source.created", key=row.key, listing_url=row.listing_url)
+    return _source_view(row)
+
+
+@router.patch("/sources/{key}", response_model=TenderSourceView)
+async def update_source(
+    key: str, body: dict[str, Any], session: SessionDep, user: CurrentUser
+) -> TenderSourceView:
+    """Rename, re-point, enable or disable a source.
+
+    Disabling works for the shipped five as well — a site you would rather not
+    fetch at all is turned off here rather than removed from the code.
+    """
+    row = (
+        await session.execute(select(TenderSourceRow).where(TenderSourceRow.key == key))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such source.")
+
+    if "is_enabled" in body:
+        row.is_enabled = bool(body["is_enabled"])
+    if body.get("name"):
+        row.name = str(body["name"])[:200]
+    if body.get("entity"):
+        row.entity = str(body["entity"])[:300]
+    if body.get("listing_url"):
+        row.listing_url = str(body["listing_url"])[:500]
+        # A new URL deserves a clean slate rather than inherited failures.
+        row.health = enums.SourceHealth.ok
+        row.consecutive_failures = 0
+        row.last_error = None
+
+    await session.flush()
+    log.info("source.updated", key=key)
+    return _source_view(row)
+
+
+@router.delete("/sources/{key}", status_code=204)
+async def delete_source(key: str, session: SessionDep, user: CurrentUser) -> None:
+    """Remove a source the user added. The shipped five can only be disabled."""
+    row = (
+        await session.execute(select(TenderSourceRow).where(TenderSourceRow.key == key))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such source.")
+    if not row.is_custom:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{row.name} ships with the system. Disable it instead of deleting it.",
+        )
+
+    await session.delete(row)
+    await session.flush()
+    log.info("source.deleted", key=key)
 
 
 # --- knowledge base ---------------------------------------------------------

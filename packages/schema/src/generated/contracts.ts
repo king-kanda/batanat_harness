@@ -276,6 +276,29 @@ export interface SourceHealthView {
   consecutive_failures?: number;
 }
 
+export interface TenderSourceRequest {
+  name: string;
+  listing_url: string;
+  entity?: string | null;
+  is_enabled?: boolean;
+}
+
+/** A site the sweep visits. */
+export interface TenderSourceView {
+  key: string;
+  name: string;
+  entity?: string | null;
+  listing_url?: string | null;
+  fallback_urls?: string[];
+  is_enabled?: boolean;
+  /** Added by the user, as opposed to one of the shipped five. */
+  is_custom?: boolean;
+  health: SourceHealth;
+  last_ok_at?: string | null;
+  last_error?: string | null;
+  consecutive_failures?: number;
+}
+
 export interface TenderView {
   id: string;
   source: string;

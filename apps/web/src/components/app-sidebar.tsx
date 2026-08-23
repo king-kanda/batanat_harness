@@ -34,7 +34,7 @@ import { api } from '#/lib/api'
 const WORKSPACE = [
   { to: '/', label: 'Chat', icon: MessageSquare },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
-  { to: '/results', label: 'Results', icon: ListChecks },
+  { to: '/opportunities', label: 'Opportunities', icon: ListChecks },
   { to: '/audit', label: 'Audit logs', icon: AuditIcon },
 ] as const
 

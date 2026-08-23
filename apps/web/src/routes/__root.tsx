@@ -25,7 +25,7 @@ import appCss from '../styles.css?url'
 const TITLES: Record<string, string> = {
   '/': 'Chat',
   '/approvals': 'Approvals',
-  '/results': 'Results',
+  '/opportunities': 'Opportunities',
   '/audit': 'Audit logs',
   '/rules': 'Rules',
   '/memory': 'Memory',

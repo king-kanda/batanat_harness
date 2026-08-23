@@ -352,6 +352,15 @@ class TenderSourceRow(Base, TimestampMixin):
     adapter: Mapped[str] = mapped_column(String(100), nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
+    #: The page the tender listing is actually on. `base_url` is the site root;
+    #: these sites bury the listing several levels down and move it on redesign.
+    listing_url: Mapped[str | None] = mapped_column(String(500))
+    #: Tried in order when the primary 404s, because they do move.
+    fallback_urls: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    #: Sites the client added themselves, as opposed to the five we shipped.
+    is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    entity: Mapped[str | None] = mapped_column(String(300))
+
     health: Mapped[enums.SourceHealth] = mapped_column(
         pg_enum(enums.SourceHealth, "source_health"),
         nullable=False,

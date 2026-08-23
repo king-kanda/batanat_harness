@@ -40,6 +40,7 @@ export type {
   SkillVersionView,
   SourceHealth,
   SourceHealthView,
+  TenderSourceView,
   TenderView,
   ToolCallView,
   TriggerType,

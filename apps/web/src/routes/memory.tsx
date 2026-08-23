@@ -8,6 +8,7 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
+import { humanise, humaniseShort } from '#/lib/labels'
 
 export const Route = createFileRoute('/memory')({ component: MemoryScreen })
 
@@ -29,8 +30,8 @@ function MemoryScreen() {
         <div>
           <CardTitle>Memory</CardTitle>
           <CardDescription>
-            Anything tagged <span className="font-mono">untrusted_external</span> is only ever
-            shown to the agent as quoted data — never as instruction.
+            Anything that came from outside the system is only ever shown to the agent as
+            quoted data — never as instruction.
           </CardDescription>
         </div>
         <input
@@ -57,9 +58,9 @@ function MemoryScreen() {
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-2">
-                <StatusBadge tone="neutral">{memory.layer}</StatusBadge>
+                <StatusBadge tone="neutral">{humanise(memory.layer)}</StatusBadge>
                 <StatusBadge tone={memory.instruction_eligible ? 'ok' : 'degraded'}>
-                  {memory.trust_tag}
+                  {humaniseShort(memory.trust_tag)}
                 </StatusBadge>
                 {!memory.instruction_eligible && (
                   <span className="text-muted-foreground/80 text-[11px]">quoted as data only</span>

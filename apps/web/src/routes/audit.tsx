@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
+import { humanise } from '#/lib/labels'
 
 export const Route = createFileRoute('/audit')({ component: AuditLog })
 
@@ -40,7 +41,7 @@ function AuditLog() {
                 key={trigger}
                 className="border-border flex flex-wrap items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
               >
-                <span className="text-foreground w-36 shrink-0 font-mono">{trigger}</span>
+                <span className="w-44 shrink-0 text-xs font-medium">{humanise(trigger)}</span>
                 <StatusBadge
                   tone={
                     entry.trust === 'trusted'
@@ -50,7 +51,7 @@ function AuditLog() {
                         : 'neutral'
                   }
                 >
-                  {entry.trust}
+                  {humanise(entry.trust)}
                 </StatusBadge>
                 <span className="text-muted-foreground/80 font-mono">
                   {entry.tools.length ? entry.tools.join(' · ') : 'no tools'}
@@ -108,13 +109,13 @@ function RunRow({ run }: { run: RunView }) {
         ) : (
           <ChevronRight className="text-muted-foreground/80 size-3.5 shrink-0 translate-y-0.5" aria-hidden />
         )}
-        <span className="text-foreground w-32 shrink-0 font-mono">{run.trigger_type}</span>
+        <span className="w-40 shrink-0 text-xs font-medium">{humanise(run.trigger_type)}</span>
         <StatusBadge
           tone={
             run.status === 'succeeded' ? 'ok' : run.status === 'limit_exceeded' ? 'degraded' : 'down'
           }
         >
-          {run.status}
+          {humanise(run.status)}
         </StatusBadge>
         <span className="text-muted-foreground/80 tabular w-16 shrink-0 text-right">
           {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : '—'}
@@ -132,7 +133,7 @@ function RunRow({ run }: { run: RunView }) {
         <div className="bg-muted border-border border-t px-4 py-3">
           <dl className="text-muted-foreground/80 mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px]">
             <span>
-              trust <span className="text-muted-foreground font-mono">{run.trust_level}</span>
+              trust <span className="text-muted-foreground">{humanise(run.trust_level)}</span>
             </span>
             <span>
               iterations <span className="text-muted-foreground tabular">{run.iterations}</span>

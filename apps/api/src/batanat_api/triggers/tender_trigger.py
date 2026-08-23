@@ -21,7 +21,7 @@ from batanat_api.db import enums
 from batanat_api.db.models import Run, SkillVersion, Tender
 from batanat_api.tenders.base import PoliteClient
 from batanat_api.tenders.ingest import ingest_report, record_source_health
-from batanat_api.tenders.sources import build_sources
+from batanat_api.tenders.sources import build_sources_from_db
 from batanat_api.validation.validator import validate_tenders
 
 log = get_logger(__name__)
@@ -65,7 +65,7 @@ async def run_tender_cycle(
     source_summaries = []
     new_tender_ids: list[uuid.UUID] = []
 
-    for source in build_sources():
+    for source in await build_sources_from_db(session):
         report = await source.collect(client)
         await record_source_health(session, report)
 
