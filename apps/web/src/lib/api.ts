@@ -27,6 +27,7 @@ import type {
   RunView,
   SkillValidationView,
   SkillVersionView,
+  TenderSourceView,
   TenderView,
 } from '@batanat/schema'
 
@@ -163,6 +164,18 @@ export const api = {
     list: (search?: string) =>
       request<MemoryView[]>(`/api/memories${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     remove: (id: string) => request<void>(`/api/memories/${id}`, { method: 'DELETE' }),
+  },
+
+  sources: {
+    list: () => request<TenderSourceView[]>('/api/sources'),
+    create: (body: { name: string; listing_url: string; entity?: string }) =>
+      post<TenderSourceView>('/api/sources', body),
+    update: (key: string, body: Record<string, unknown>) =>
+      request<TenderSourceView>(`/api/sources/${key}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    remove: (key: string) => request<void>(`/api/sources/${key}`, { method: 'DELETE' }),
   },
 
   knowledge: {

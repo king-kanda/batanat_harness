@@ -116,6 +116,31 @@ class SourceHealthView(BaseModel):
     consecutive_failures: int = 0
 
 
+class TenderSourceView(BaseModel):
+    """A site the sweep visits."""
+
+    key: str
+    name: str
+    entity: str | None = None
+    listing_url: str | None = None
+    fallback_urls: list[str] = Field(default_factory=list)
+    is_enabled: bool = True
+    is_custom: bool = Field(
+        default=False, description="Added by the user, as opposed to one of the shipped five."
+    )
+    health: SourceHealth
+    last_ok_at: datetime | None = None
+    last_error: str | None = None
+    consecutive_failures: int = 0
+
+
+class TenderSourceRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    listing_url: str = Field(min_length=8, max_length=500)
+    entity: str | None = Field(default=None, max_length=300)
+    is_enabled: bool = True
+
+
 class ScheduledRunView(BaseModel):
     id: str
     next_run_at: str

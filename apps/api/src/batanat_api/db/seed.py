@@ -25,45 +25,39 @@ log = get_logger(__name__)
 DEMO_EMAIL = get_settings().default_user_email
 DEMO_NAME = "Martin"
 
+
 # The five sources named in the PRD. `adapter` is resolved to a class in phase 4.
-TENDER_SOURCES = [
-    {
-        "key": "ppip",
-        "name": "PPIP — Public Procurement Information Portal",
-        "base_url": "https://tenders.go.ke",
-        "adapter": "PpipSource",
-    },
-    {
-        "key": "kplc",
-        "name": "Kenya Power (KPLC)",
-        "base_url": "https://kplc.co.ke",
-        "adapter": "KplcSource",
-    },
-    {
-        "key": "kengen",
-        "name": "KenGen",
-        "base_url": "https://kengen.co.ke",
-        "adapter": "KengenSource",
-    },
-    {
-        "key": "ketraco",
-        "name": "KETRACO",
-        "base_url": "https://ketraco.co.ke",
-        "adapter": "KetracoSource",
-    },
-    {
-        "key": "rerec",
-        "name": "REREC — Rural Electrification and Renewable Energy Corporation",
-        "base_url": "https://rerec.co.ke",
-        "adapter": "RerecSource",
-    },
-    {
-        "key": "websearch",
-        "name": "Web search fallback (Tavily)",
-        "base_url": "https://tavily.com",
-        "adapter": "WebSearchSource",
-    },
-]
+def _shipped_sources() -> list[dict]:
+    """Seed rows built from the scraper's own config, so the two cannot drift."""
+    from batanat_api.tenders.sources import CONFIGS
+
+    rows = [
+        {
+            "key": config.key,
+            "name": config.name,
+            "entity": config.entity,
+            "base_url": config.listing_url,
+            "listing_url": config.listing_url,
+            "fallback_urls": list(config.fallback_urls),
+            "adapter": "TableTenderSource",
+        }
+        for config in CONFIGS
+    ]
+    rows.append(
+        {
+            "key": "websearch",
+            "name": "Web search fallback (Tavily)",
+            "entity": "various",
+            "base_url": "https://tavily.com",
+            "listing_url": None,
+            "fallback_urls": [],
+            "adapter": "WebSearchSource",
+        }
+    )
+    return rows
+
+
+TENDER_SOURCES = _shipped_sources()
 
 # Deliberately criteria-only. Every security rule lives in code, so nothing
 # written here — or typed into the Rules editor later — can widen the agent's

@@ -342,8 +342,48 @@ class ResilientTableSource(TableTenderSource):
 
 
 def build_sources(keys: list[str] | None = None) -> list[TenderSource]:
+    """The shipped five, from the static table."""
     selected = [c for c in CONFIGS if not keys or c.key in keys]
     return [ResilientTableSource(config) for config in selected]
+
+
+async def build_sources_from_db(session, keys: list[str] | None = None) -> list[TenderSource]:
+    """Every enabled source in the database, including ones the client added.
+
+    The static CONFIGS are the seed, not the authority — once a row exists the
+    row wins, so editing a listing URL in the UI takes effect without a deploy.
+    Falls back to CONFIGS if the table is empty, so a fresh clone still works
+    before `make seed` has run.
+    """
+    from sqlalchemy import select
+
+    from batanat_api.db.models import TenderSourceRow
+
+    query = select(TenderSourceRow).where(TenderSourceRow.is_enabled.is_(True))
+    if keys:
+        query = query.where(TenderSourceRow.key.in_(keys))
+
+    rows = (await session.execute(query.order_by(TenderSourceRow.key))).scalars().all()
+    if not rows:
+        return build_sources(keys)
+
+    sources: list[TenderSource] = []
+    for row in rows:
+        # The search fallback is not a scraper; it is invoked separately.
+        if row.adapter == "WebSearchSource":
+            continue
+        sources.append(
+            ResilientTableSource(
+                SourceConfig(
+                    key=row.key,
+                    name=row.name,
+                    entity=row.entity or row.name,
+                    listing_url=row.listing_url or row.base_url,
+                    fallback_urls=tuple(row.fallback_urls or ()),
+                )
+            )
+        )
+    return sources
 
 
 def source_keys() -> list[str]:

@@ -14,7 +14,7 @@ import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
-import { Route as ResultsRouteImport } from './routes/results'
+import { Route as OpportunitiesRouteImport } from './routes/opportunities'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
@@ -46,9 +46,9 @@ const MemoryRoute = MemoryRouteImport.update({
   path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResultsRoute = ResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
+const OpportunitiesRoute = OpportunitiesRouteImport.update({
+  id: '/opportunities',
+  path: '/opportunities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -83,7 +83,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
-  '/results': typeof ResultsRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -96,7 +96,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
-  '/results': typeof ResultsRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -110,7 +110,7 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
-  '/results': typeof ResultsRoute
+  '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -125,7 +125,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
-    | '/results'
+    | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -138,7 +138,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
-    | '/results'
+    | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -151,7 +151,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
-    | '/results'
+    | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -165,7 +165,7 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   LoginRoute: typeof LoginRoute
   MemoryRoute: typeof MemoryRoute
-  ResultsRoute: typeof ResultsRoute
+  OpportunitiesRoute: typeof OpportunitiesRoute
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
@@ -210,11 +210,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/results': {
-      id: '/results'
-      path: '/results'
-      fullPath: '/results'
-      preLoaderRoute: typeof ResultsRouteImport
+    '/opportunities': {
+      id: '/opportunities'
+      path: '/opportunities'
+      fullPath: '/opportunities'
+      preLoaderRoute: typeof OpportunitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -261,7 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   LoginRoute: LoginRoute,
   MemoryRoute: MemoryRoute,
-  ResultsRoute: ResultsRoute,
+  OpportunitiesRoute: OpportunitiesRoute,
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsKnowledgeRoute: SettingsKnowledgeRoute,

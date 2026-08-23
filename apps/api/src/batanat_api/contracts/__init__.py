@@ -38,6 +38,8 @@ from batanat_api.contracts.operations import (
     SkillValidationView,
     SkillVersionView,
     SourceHealthView,
+    TenderSourceRequest,
+    TenderSourceView,
     TenderView,
     ToolCallView,
 )
@@ -60,6 +62,8 @@ EXPORTED_MODELS = [
     EmailView,
     TenderView,
     SourceHealthView,
+    TenderSourceRequest,
+    TenderSourceView,
     ScheduledRunView,
     DashboardView,
     SkillVersionView,

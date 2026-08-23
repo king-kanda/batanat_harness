@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
+import { humanise } from '#/lib/labels'
 
 export const Route = createFileRoute('/approvals')({ component: Approvals })
 
@@ -89,7 +90,7 @@ function Approvals() {
                         : 'down'
                   }
                 >
-                  {approval.status}
+                  {humanise(approval.status)}
                 </StatusBadge>
                 <span className="text-muted-foreground/80 truncate">{approval.rationale}</span>
                 <span className="text-muted-foreground/80 tabular ml-auto shrink-0">

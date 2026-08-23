@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
+import { humaniseShort } from '#/lib/labels'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/settings/knowledge')({ component: KnowledgeBase })
@@ -195,7 +196,7 @@ function KnowledgeBase() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-medium">{doc.filename}</span>
                   <StatusBadge tone={doc.trust_tag === 'user_asserted' ? 'ok' : 'degraded'}>
-                    {doc.trust_tag === 'user_asserted' ? 'our own' : 'third-party'}
+                    {humaniseShort(doc.trust_tag)}
                   </StatusBadge>
                 </div>
                 <p className="text-muted-foreground text-[11px]">

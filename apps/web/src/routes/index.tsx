@@ -167,9 +167,9 @@ function Greeting() {
       label: 'Opportunities',
       value: data?.opportunities_today ?? 0,
       hint: 'last 24h',
-      to: '/results',
+      to: '/opportunities',
     },
-    { label: 'Tenders', value: data?.tenders_today ?? 0, hint: 'last 24h', to: '/results' },
+    { label: 'Tenders', value: data?.tenders_today ?? 0, hint: 'last 24h', to: '/opportunities' },
     {
       label: 'Approvals',
       value: data?.pending_approvals ?? 0,
