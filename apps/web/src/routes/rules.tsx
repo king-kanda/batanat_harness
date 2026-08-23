@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Check, History, Loader2, RotateCcw, TriangleAlert } from 'lucide-react'
+import { Check, History, Loader2, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { AssistantChat } from '#/components/rules-assistant'
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '#/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { api } from '#/lib/api'
 import { cn } from '#/lib/utils'
@@ -20,6 +28,8 @@ function Rules() {
   const [draft, setDraft] = useState('')
   const [touched, setTouched] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantWrote, setAssistantWrote] = useState(false)
 
   // Load the active version once, then leave the editor alone.
   useEffect(() => {
@@ -56,6 +66,7 @@ function Rules() {
   const blocked = validation.data?.ok === false
 
   return (
+    <>
     <Tabs defaultValue="editor" className="space-y-4">
       <TabsList>
         <TabsTrigger value="editor">Editor</TabsTrigger>
@@ -74,11 +85,23 @@ function Rules() {
               in code, so nothing typed here can widen what the agent may do.
             </CardDescription>
           </div>
-          {active && <StatusBadge tone="ok">v{active.version} active</StatusBadge>}
+          <div className="flex items-center gap-2">
+            {active && <StatusBadge tone="ok">v{active.version} active</StatusBadge>}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAssistantOpen(true)}
+              data-tour="rules-assistant"
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              Draft with assistant
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-3">
           <textarea
+            data-tour="rules-editor"
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value)
@@ -88,8 +111,16 @@ function Rules() {
             rows={22}
             spellCheck={false}
             placeholder="# Operating criteria…"
-            className="bg-muted border-border text-foreground focus:border-ring w-full resize-y rounded border p-3 font-mono text-xs leading-relaxed outline-none"
+            className="bg-muted border-border text-foreground focus:border-ring w-full resize-y rounded-lg border p-3 font-mono text-xs leading-relaxed outline-none"
           />
+
+          {assistantWrote && (
+            <p className="text-primary-foreground bg-accent flex items-start gap-1.5 rounded-lg px-3 py-2 text-xs">
+              <Sparkles className="text-primary mt-0.5 size-3.5 shrink-0" aria-hidden />
+              The assistant wrote into the editor above. Read it, change anything you disagree
+              with, then publish — nothing is live until you do.
+            </p>
+          )}
 
           {validation.data?.errors?.map((error) => (
             <p key={error} className="text-status-down flex items-start gap-1.5 text-xs">
@@ -180,5 +211,48 @@ function Rules() {
       </Card>
       </TabsContent>
     </Tabs>
+
+    {/* A drawer rather than its own page: the document you are discussing stays
+        where it is, and whatever the assistant writes lands in the editor you
+        were already using — same validation, same Publish button, one path to
+        production. */}
+    <Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Sparkles className="text-primary size-4" aria-hidden />
+            Draft with assistant
+          </SheetTitle>
+          <SheetDescription>
+            Describe your business and what you care about. It asks questions, then writes the
+            criteria into the editor behind this panel. It has no tools and cannot act on
+            anything — it only drafts text for you to approve.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
+          <AssistantChat
+            currentContent={draft || active?.content}
+            onDraft={(content) => {
+              setDraft(content)
+              setTouched(true)
+              setAssistantWrote(true)
+              setMessage(null)
+            }}
+          />
+          {assistantWrote && (
+            <Button
+              variant="outline"
+              className="mt-3"
+              onClick={() => setAssistantOpen(false)}
+            >
+              <Check className="size-3.5" aria-hidden />
+              Close and review the draft
+            </Button>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   )
 }

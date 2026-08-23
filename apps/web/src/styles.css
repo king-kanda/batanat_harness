@@ -70,7 +70,9 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  /* Everything else derives from this one number, so the whole app's softness is
+     a single edit. Cards land at 18px, inputs and chips a step below. */
+  --radius: 0.875rem;
 
   --lime: oklch(0.92 0.2 122);
   --lime-soft: oklch(0.95 0.09 122);

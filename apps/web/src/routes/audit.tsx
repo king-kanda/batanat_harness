@@ -19,7 +19,7 @@ function AuditLog() {
 
   return (
     <Tabs defaultValue="runs" className="space-y-4">
-      <TabsList>
+      <TabsList data-tour="audit-panel">
         <TabsTrigger value="runs">Run log</TabsTrigger>
         <TabsTrigger value="policy">Capability policy</TabsTrigger>
       </TabsList>
@@ -155,7 +155,7 @@ function RunRow({ run }: { run: RunView }) {
                 run.bound_tools.map((tool) => (
                   <span
                     key={tool}
-                    className="border-border text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[10px]"
+                    className="border-border text-muted-foreground rounded-md border px-1.5 py-0.5 font-mono text-[10px]"
                   >
                     {tool}
                   </span>
@@ -181,7 +181,7 @@ function RunRow({ run }: { run: RunView }) {
 
 function ToolCall({ call }: { call: ToolCallView }) {
   return (
-    <div className="border-border bg-card rounded border p-2.5">
+    <div className="border-border bg-card rounded-lg border p-2.5">
       <div className="flex items-baseline gap-2 text-[11px]">
         <span className="text-muted-foreground/80 tabular">#{call.sequence}</span>
         <span className="text-foreground font-mono">{call.tool_name}</span>

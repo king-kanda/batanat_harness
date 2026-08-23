@@ -128,6 +128,7 @@ function KnowledgeBase() {
               handleFiles(e.dataTransfer.files)
             }}
             onClick={() => inputRef.current?.click()}
+            data-tour="knowledge-upload"
             className={cn(
               'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center transition-colors',
               dragging ? 'border-ring bg-accent' : 'border-border hover:border-muted-foreground/40',

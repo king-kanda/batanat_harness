@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/ui/button'
 import { TOUR, markTourSeen } from '#/lib/tour'
 import { cn } from '#/lib/utils'
 
 type Box = { top: number; left: number; width: number; height: number }
+
+/** How often to re-measure the highlighted element while a step is on screen. */
+const MEASURE_MS = 150
+
+function sameBox(a: Box | null, b: Box | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height
+}
 
 function boxFor(target?: string): Box | null {
   // Rendered on the server first, where there is no DOM. Without this guard the
@@ -22,8 +32,21 @@ export function Tour() {
   const [index, setIndex] = useState(0)
   const [box, setBox] = useState<Box | null>(null)
 
+  const navigate = useNavigate()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
+  // Where the user was when they started, so the tour puts them back.
+  const origin = useRef<string | null>(null)
+  // Last step we scrolled into view, so re-running the tour scrolls again.
+  const scrolled = useRef<number | null>(null)
+
+  const step = TOUR[index]
+  const onRoute = !step?.route || pathname === step.route
+
   useEffect(() => {
     const open = () => {
+      origin.current = window.location.pathname
+      scrolled.current = null
       setIndex(0)
       setActive(true)
     }
@@ -31,58 +54,87 @@ export function Tour() {
     return () => window.removeEventListener('batanat:tour', open)
   }, [])
 
-  // Steps whose target is not on this screen are skipped rather than shown
-  // pointing at nothing.
-  const steps = active ? TOUR.filter((s) => !s.target || boxFor(s.target) !== null) : TOUR
-  const step = steps[index]
+  // Drive the router. The tour walks the app rather than pointing at menu
+  // entries from wherever the user happened to be standing.
+  useEffect(() => {
+    if (!active || onRoute) return
+    navigate({ to: step.route as never })
+  }, [active, onRoute, step, navigate])
 
-  const reposition = useCallback(() => {
-    if (!step) return
-    setBox(boxFor(step.target))
-    const el = step.target
-      ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
-      : null
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [step])
+  const measure = useCallback(() => {
+    const next = onRoute ? boxFor(step?.target) : null
+    setBox((prev) => (sameBox(prev, next) ? prev : next))
+  }, [onRoute, step])
 
+  // Measure on every render, before paint, so arriving on a route highlights
+  // the target in the same frame rather than a tick later.
+  useLayoutEffect(() => {
+    if (active) measure()
+  })
+
+  // Then keep measuring for as long as the step is on screen. The page a step
+  // lives on arrives asynchronously and its contents usually arrive later still
+  // — /settings/sources renders its card about a second after the route
+  // resolves, and nothing re-renders this component when it does — so a single
+  // measurement, or a poll that gives up, races the thing it is pointing at.
+  // This also keeps the highlight true when the page reflows underneath it.
   useEffect(() => {
     if (!active) return
-    reposition()
-    window.addEventListener('resize', reposition)
-    window.addEventListener('scroll', reposition, true)
+    const timer = window.setInterval(measure, MEASURE_MS)
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
     return () => {
-      window.removeEventListener('resize', reposition)
-      window.removeEventListener('scroll', reposition, true)
+      window.clearInterval(timer)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
     }
-  }, [active, reposition])
+  }, [active, measure])
+
+  // Bring the target into view once per step, not on every measurement — a
+  // repeated smooth scroll would fight the user trying to look around.
+  useEffect(() => {
+    if (!active || !box || scrolled.current === index) return
+    scrolled.current = index
+    document
+      .querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [active, box, index, step])
 
   const close = useCallback(() => {
     setActive(false)
     markTourSeen()
-  }, [])
+    if (origin.current && origin.current !== window.location.pathname) {
+      navigate({ to: origin.current as never })
+    }
+  }, [navigate])
 
   useEffect(() => {
     if (!active) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
-      if (e.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, steps.length - 1))
+      if (e.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, TOUR.length - 1))
       if (e.key === 'ArrowLeft') setIndex((i) => Math.max(i - 1, 0))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active, close, steps.length])
+  }, [active, close])
 
   if (!active || !step) return null
 
-  const last = index === steps.length - 1
+  const last = index === TOUR.length - 1
   const pad = 6
 
   // Place the card below the highlight, or above it when that would run off
   // the bottom of the viewport.
   const cardWidth = 320
+  const cardHeight = 210
   const below = box ? box.top + box.height + 12 : 0
-  const placeAbove = box ? below + 190 > window.innerHeight : false
-  const cardTop = box ? (placeAbove ? box.top - 190 : below) : window.innerHeight / 2 - 95
+  const placeAbove = box ? below + cardHeight > window.innerHeight : false
+  const cardTop = box
+    ? placeAbove
+      ? box.top - cardHeight
+      : below
+    : window.innerHeight / 2 - cardHeight / 2
   const cardLeft = box
     ? Math.min(Math.max(box.left, 12), window.innerWidth - cardWidth - 12)
     : window.innerWidth / 2 - cardWidth / 2
@@ -93,7 +145,7 @@ export function Tour() {
       <div className="absolute inset-0 bg-black/50" onClick={close} />
       {box && (
         <div
-          className="ring-primary pointer-events-none absolute rounded-sm ring-2"
+          className="ring-primary pointer-events-none absolute rounded-xl ring-2"
           style={{
             top: box.top - pad,
             left: box.left - pad,
@@ -105,18 +157,18 @@ export function Tour() {
       )}
 
       <div
-        className="bg-popover text-popover-foreground absolute rounded-sm border p-4 shadow-lg"
+        className="bg-popover text-popover-foreground absolute rounded-xl border p-4 shadow-lg"
         style={{ top: Math.max(12, cardTop), left: cardLeft, width: cardWidth }}
       >
         <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-          Step {index + 1} of {steps.length}
+          Step {index + 1} of {TOUR.length}
         </div>
         <h3 className="mt-1 text-sm font-semibold">{step.title}</h3>
         <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">{step.body}</p>
 
         <div className="mt-4 flex items-center gap-2">
           <div className="flex gap-1">
-            {steps.map((_, i) => (
+            {TOUR.map((_, i) => (
               <span
                 key={i}
                 className={cn(
@@ -127,6 +179,11 @@ export function Tour() {
             ))}
           </div>
           <div className="ml-auto flex gap-2">
+            {index > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setIndex((i) => i - 1)}>
+                Back
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={close}>
               {last ? 'Done' : 'Skip'}
             </Button>
