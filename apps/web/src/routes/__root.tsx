@@ -144,7 +144,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="bg-transparent">
+      {/* min-w-0: a flex child defaults to min-width:auto, which means it refuses
+          to shrink below its content. Without it a wide table stops being the
+          table's problem and becomes the page's — the whole app scrolls
+          sideways and the sidebar slides off screen. */}
+      <SidebarInset className="min-w-0 bg-transparent">
         <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur-xl">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 !h-4" />
@@ -154,7 +158,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <ModeNotice />
-        <main className="flex-1 p-4 md:p-6">
+        <main className="min-w-0 flex-1 p-4 md:p-6">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </SidebarInset>

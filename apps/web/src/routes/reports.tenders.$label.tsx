@@ -130,11 +130,11 @@ function Report() {
             {rejections.map((rejection, index) => (
               <div
                 key={index}
-                className="border-border flex items-baseline gap-3 border-b px-4 py-2 text-xs last:border-b-0"
+                className="border-border flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-2 text-xs last:border-b-0"
               >
                 <StatusBadge tone="down">{rejection.rule}</StatusBadge>
-                <span className="text-muted-foreground truncate">{rejection.subject}</span>
-                <span className="text-muted-foreground/80 truncate">{rejection.detail}</span>
+                <span className="text-muted-foreground min-w-0 flex-1 truncate">{rejection.subject}</span>
+                <span className="text-muted-foreground/80 min-w-0 flex-1 truncate">{rejection.detail}</span>
               </div>
             ))}
           </div>

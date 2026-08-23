@@ -205,7 +205,7 @@ function Greeting() {
           <Link
             key={card.label}
             to={card.to as never}
-            className="group border-border bg-card hover:border-ring rounded-xl border p-3 transition-all hover:-translate-y-0.5 hover:shadow-md"
+            className="group border-border bg-card hover:border-ring min-w-0 rounded-xl border p-3 transition-all hover:-translate-y-0.5 hover:shadow-md"
           >
             <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
               {card.label}
