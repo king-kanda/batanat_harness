@@ -16,9 +16,9 @@ import secrets
 import uuid
 from dataclasses import dataclass
 
-from redis.asyncio import Redis, from_url
+from redis.asyncio import Redis
 
-from batanat_api.config import get_settings
+from batanat_api.core.redis import get_redis
 from batanat_api.db import enums
 
 STATE_TTL_SECONDS = 600
@@ -37,7 +37,7 @@ class OAuthState:
 
 
 def _client() -> Redis:
-    return from_url(get_settings().redis_url)
+    return get_redis()
 
 
 async def issue(user_id: uuid.UUID, provider: enums.Provider, return_to: str) -> str:
@@ -45,11 +45,7 @@ async def issue(user_id: uuid.UUID, provider: enums.Provider, return_to: str) ->
     payload = json.dumps(
         {"user_id": str(user_id), "provider": provider.value, "return_to": return_to}
     )
-    client = _client()
-    try:
-        await client.set(f"{KEY_PREFIX}{token}", payload, ex=STATE_TTL_SECONDS)
-    finally:
-        await client.aclose()
+    await _client().set(f"{KEY_PREFIX}{token}", payload, ex=STATE_TTL_SECONDS)
     return token
 
 
@@ -58,12 +54,8 @@ async def consume(token: str) -> OAuthState:
     if not token:
         raise InvalidStateError("No state parameter was returned by the provider.")
 
-    client = _client()
-    try:
-        # GETDEL makes this single-use without a race between read and delete.
-        raw = await client.getdel(f"{KEY_PREFIX}{token}")
-    finally:
-        await client.aclose()
+    # GETDEL makes this single-use without a race between read and delete.
+    raw = await _client().getdel(f"{KEY_PREFIX}{token}")
 
     if raw is None:
         raise InvalidStateError(

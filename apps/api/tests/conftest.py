@@ -71,6 +71,20 @@ def _encryption_key(monkeypatch: pytest.MonkeyPatch) -> str:
     return key
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _reset_shared_redis_client():
+    """Drop the process-wide client between runs.
+
+    It binds to the event loop that first touches it, and the test loop is not
+    the one a real process would use.
+    """
+    from batanat_api.core import redis as shared_redis
+
+    shared_redis.reset()
+    yield
+    shared_redis.reset()
+
+
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def _clean_redis_keys():
     """Clear this project's Redis keys between tests.
@@ -137,9 +151,16 @@ async def session(db_engine) -> AsyncIterator[AsyncSession]:
     """A session inside a transaction that is always rolled back.
 
     Tests call `commit()` freely — with `create_savepoint` that releases a
-    savepoint rather than the outer transaction, so constraint violations still
-    surface exactly as they would in production, and the database is pristine
-    for the next test.
+    savepoint rather than the outer transaction, so constraint violations
+    surface as they would in production and the database is pristine for the
+    next test.
+
+    One caveat worth knowing before trusting a test here: `create_savepoint`
+    also *recovers* from a failed statement, because SQLAlchemy rolls back to
+    the savepoint. Production sessions do not — a failed statement aborts the
+    transaction and every later statement raises. So this fixture cannot
+    reproduce transaction-poisoning bugs; those need checking against a plain
+    session.
     """
     async with db_engine.connect() as connection:
         transaction = await connection.begin()

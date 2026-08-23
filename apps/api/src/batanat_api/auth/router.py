@@ -11,7 +11,13 @@ which addresses are worth grinding.
 **A missing user still costs a hash.** Returning early when the email is unknown
 makes that case measurably faster, which is the same disclosure by a slower
 route. So an unknown email is verified against a dummy hash and takes the same
-~100ms as a real one.
+~0.6s as a real one.
+
+`/me` deliberately does *no* hashing. It is called on every page load, and
+deriving "is this still the default password?" by running scrypt against the
+default would put a 32MB, half-second KDF on the hottest endpoint in the app —
+several browser tabs regaining focus at once would be enough to stall the API.
+The answer is a stored flag instead, written when the password is set.
 """
 
 from __future__ import annotations
@@ -23,7 +29,6 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 
 from batanat_api.auth import sessions
-from batanat_api.config import get_settings
 from batanat_api.core.deps import SessionDep
 from batanat_api.core.logging import get_logger
 from batanat_api.db.models import User
@@ -62,16 +67,12 @@ def _client_address(request: Request) -> str:
 
 
 def _view(user: User) -> CurrentUserView:
-    settings = get_settings()
-    default_password = settings.default_user_password
     return CurrentUserView(
         id=str(user.id),
         email=user.email,
         name=user.name,
         timezone=user.timezone,
-        using_default_password=bool(
-            default_password and verify_password(default_password, user.password_hash)
-        ),
+        using_default_password=user.must_change_password,
     )
 
 

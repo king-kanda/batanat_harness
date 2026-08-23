@@ -26,12 +26,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
-from redis.asyncio import from_url
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from batanat_api.config import get_settings
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 from batanat_api.db.models import PairingCode, WhatsAppLink
 
 log = get_logger(__name__)
@@ -86,15 +85,12 @@ def wa_me_url(business_number: str, code: str) -> str:
 
 async def _rate_limit(key: str, limit: int, window_seconds: int = 3600) -> None:
     """Fixed-window counter in Redis. Raises once the limit is passed."""
-    client = from_url(get_settings().redis_url)
-    try:
-        count = await client.incr(key)
-        if count == 1:
-            await client.expire(key, window_seconds)
-        if count > limit:
-            raise RateLimitedError(f"Rate limit reached for {key.split(':')[0]}.")
-    finally:
-        await client.aclose()
+    client = get_redis()
+    count = await client.incr(key)
+    if count == 1:
+        await client.expire(key, window_seconds)
+    if count > limit:
+        raise RateLimitedError(f"Rate limit reached for {key.split(':')[0]}.")
 
 
 def normalise_phone(raw: str) -> str:

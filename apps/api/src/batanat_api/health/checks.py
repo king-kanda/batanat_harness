@@ -18,11 +18,11 @@ from datetime import UTC, datetime
 import asyncpg
 import httpx
 from pymongo import AsyncMongoClient
-from redis.asyncio import from_url as redis_from_url
 
 from batanat_api.config import Settings
 from batanat_api.contracts.health import ServiceHealth, ServiceStatus
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 
 log = get_logger(__name__)
 
@@ -67,13 +67,10 @@ async def _postgres(settings: Settings) -> str | None:
 
 
 async def _redis(settings: Settings) -> str | None:
-    client = redis_from_url(settings.redis_url)
-    try:
-        await client.ping()
-        info = await client.info("server")
-        return f"redis {info.get('redis_version', 'unknown')}"
-    finally:
-        await client.aclose()
+    client = get_redis()
+    await client.ping()
+    info = await client.info("server")
+    return f"redis {info.get('redis_version', 'unknown')}"
 
 
 async def _mongo(settings: Settings) -> str | None:

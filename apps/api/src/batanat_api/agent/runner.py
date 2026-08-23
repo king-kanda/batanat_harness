@@ -11,6 +11,11 @@ Order of operations, and none of it is negotiable:
 4. **Loop** — every iteration checks the budget first; every tool call is
    checked against the circuit breaker, timed, and appended to `tool_calls`.
 
+Each tool runs inside its own savepoint. A tool that fails against the database
+would otherwise leave the transaction aborted, which means the `ToolCall` row
+recording that failure cannot be written either — losing the audit trail in
+exactly the case you most want it.
+
 The model is injected rather than constructed here. That is what makes the loop
 testable without an API key, and it is also how demo mode will work in phase 9.
 """
@@ -126,6 +131,7 @@ class AgentRunner:
         skill_content: str | None = None,
         skill_version_id: uuid.UUID | None = None,
         memories: list[str] | None = None,
+        quoted_context: list[str] | None = None,
         trigger_ref: str | None = None,
     ) -> RunResult:
         settings = get_settings()
@@ -187,6 +193,7 @@ class AgentRunner:
                         payload=payload,
                         payload_is_untrusted=capability.payload_is_untrusted,
                         instruction=instruction,
+                        quoted_context=quoted_context,
                     ),
                 }
             ]
@@ -242,9 +249,12 @@ class AgentRunner:
                         recorded.append(outcome)
                         messages.append(
                             {
-                                "role": "user",
+                                "role": "tool",
                                 "content": prompt.render_tool_result(
-                                    request.name, outcome["result"] or outcome["error"]
+                                    request.name,
+                                    outcome["error"]
+                                    if outcome["error"] is not None
+                                    else outcome["result"],
                                 ),
                                 "tool_call_id": request.id,
                             }
@@ -332,7 +342,15 @@ class AgentRunner:
                     trust=trust,
                     session=session,
                 )
-                result = await tool.handler(context, args)
+                # A savepoint, so a tool that fails against the database does
+                # not take the audit record down with it. Without this, a failed
+                # statement leaves the transaction aborted, the ToolCall insert
+                # below fails too, and the one thing we promise to always record
+                # is the thing that disappears. Rolling back to the savepoint
+                # also makes a tool call atomic: a handler that half-wrote
+                # before raising leaves nothing behind.
+                async with session.begin_nested():
+                    result = await tool.handler(context, args)
                 await self.breaker.record_success(tool.name)
             except CircuitOpenError as exc:
                 error = str(exc)

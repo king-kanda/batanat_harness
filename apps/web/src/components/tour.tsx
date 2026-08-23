@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 
 import { Button } from '#/components/ui/button'
 import { TOUR, markTourSeen } from '#/lib/tour'
+import type { AppRoute } from '#/lib/tour'
 import { cn } from '#/lib/utils'
 
 type Box = { top: number; left: number; width: number; height: number }
@@ -57,20 +58,24 @@ export function Tour() {
   // Drive the router. The tour walks the app rather than pointing at menu
   // entries from wherever the user happened to be standing.
   useEffect(() => {
-    if (!active || onRoute) return
-    navigate({ to: step.route as never })
-  }, [active, onRoute, step, navigate])
+    const route = step?.route
+    if (!active || !route || pathname === route) return
+    navigate({ to: route })
+  }, [active, step, pathname, navigate])
 
   const measure = useCallback(() => {
     const next = onRoute ? boxFor(step?.target) : null
     setBox((prev) => (sameBox(prev, next) ? prev : next))
   }, [onRoute, step])
 
-  // Measure on every render, before paint, so arriving on a route highlights
-  // the target in the same frame rather than a tick later.
+  // Measure before paint when the step or the route changes, so arriving
+  // somewhere highlights the target in the same frame rather than a tick later.
+  // Deliberately not on every render: the interval below already re-measures,
+  // and an unconditional layout effect would re-measure once more for each of
+  // those, every 150ms, for as long as the tour is open.
   useLayoutEffect(() => {
     if (active) measure()
-  })
+  }, [active, measure])
 
   // Then keep measuring for as long as the step is on screen. The page a step
   // lives on arrives asynchronously and its contents usually arrive later still
@@ -103,8 +108,11 @@ export function Tour() {
   const close = useCallback(() => {
     setActive(false)
     markTourSeen()
+    // A path observed at runtime, so it cannot be typed the way step routes
+    // are. If it is not a real route the router lands on the not-found route,
+    // which is the same as any hand-typed URL.
     if (origin.current && origin.current !== window.location.pathname) {
-      navigate({ to: origin.current as never })
+      navigate({ to: origin.current as AppRoute })
     }
   }, [navigate])
 

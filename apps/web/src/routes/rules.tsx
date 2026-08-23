@@ -46,6 +46,7 @@ function Rules() {
     mutationFn: () => api.skill.publish(draft),
     onSuccess: (version) => {
       setTouched(false)
+      setAssistantWrote(false)
       setMessage(`Published version ${version.version}.`)
       queryClient.invalidateQueries({ queryKey: ['skill'] })
     },
@@ -154,6 +155,7 @@ function Rules() {
                 onClick={() => {
                   setDraft(active?.content ?? '')
                   setTouched(false)
+                  setAssistantWrote(false)
                 }}
               >
                 Discard changes

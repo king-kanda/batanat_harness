@@ -19,10 +19,10 @@ from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from redis.asyncio import from_url
 
 from batanat_api.config import get_settings
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 from batanat_api.core.run_context import run_context
 from batanat_api.db.session import session_scope
 
@@ -36,24 +36,18 @@ LOCK_TTL_SECONDS = 1800
 
 
 async def _acquire(job: str) -> bool:
-    client = from_url(get_settings().redis_url)
     try:
-        return bool(await client.set(f"job:lock:{job}", "1", ex=LOCK_TTL_SECONDS, nx=True))
+        return bool(await get_redis().set(f"job:lock:{job}", "1", ex=LOCK_TTL_SECONDS, nx=True))
     except Exception:  # noqa: BLE001
         log.warning("scheduler.lock_unavailable", job=job)
         return True  # Redis down: better a duplicate run than no run
-    finally:
-        await client.aclose()
 
 
 async def _release(job: str) -> None:
-    client = from_url(get_settings().redis_url)
     try:
-        await client.delete(f"job:lock:{job}")
+        await get_redis().delete(f"job:lock:{job}")
     except Exception:  # noqa: BLE001
         pass
-    finally:
-        await client.aclose()
 
 
 async def _for_each_user(fn, job_name: str) -> None:
