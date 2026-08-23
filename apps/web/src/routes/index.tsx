@@ -129,11 +129,18 @@ function Home() {
                 submit()
               }
             }}
-            rows={2}
+            rows={4}
             placeholder="Ask about tenders, email or the CRM…"
-            className="min-h-[3rem] resize-none border-0 shadow-none focus-visible:ring-0"
+            // Roomy enough to see a few lines of what you are writing, and it
+            // grows from there rather than scrolling inside four fixed rows.
+            className="max-h-64 min-h-[6.5rem] resize-none border-0 shadow-none focus-visible:ring-0"
           />
-          <Button onClick={submit} disabled={send.isPending || !input.trim()} size="icon">
+          <Button
+            onClick={submit}
+            disabled={send.isPending || !input.trim()}
+            size="icon"
+            className="mb-1"
+          >
             <Send className="size-4" aria-hidden />
             <span className="sr-only">Send</span>
           </Button>
