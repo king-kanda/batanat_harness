@@ -275,6 +275,11 @@ never logged must not depend on every future author remembering it.
 - **Zoho data-centre mismatch is the most common integration failure.** `api_domain` and
   `accounts_url` come back in the token response and are persisted per connection; `zohoapis.com` is
   never hardcoded.
+- **Reports are sent via SendGrid, not Gmail.** The Gmail connection is `gmail.readonly`
+  by design — the agent reads the inbox and can never send from it. Report delivery rides a
+  separate credential (`SENDGRID_API_KEY`) with a separate blast radius, and recipients come
+  from `REPORT_TO` / `REPORT_CC` in the environment. Nothing a run reads or produces can
+  change where a report lands.
 - **WhatsApp utility templates need approval from Meta before launch**, and the number is shared
   across users — senders are mapped to users by a pairing code, not by trusting the phone number.
 - **Scrapers are fragile by nature, and four of five are currently degraded.** Verified live on

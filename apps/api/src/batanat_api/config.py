@@ -84,6 +84,18 @@ class Settings(BaseSettings):
     tool_circuit_breaker_threshold: int = 3
     tool_circuit_breaker_cooldown_s: int = 900
 
+    # --- report delivery (phase 6) ---
+    # Reports go out on SendGrid, not Gmail: the Gmail connection is read-only
+    # by design and must stay that way. Recipients are configuration, never
+    # something a run can choose.
+    sendgrid_api_key: str | None = None
+    report_from_email: str | None = None
+    report_from_name: str = "Batanat Harness"
+    report_reply_to: str | None = None
+    #: Comma-separated.
+    report_to: str = ""
+    report_cc: str = ""
+
     # --- scheduling (phase 5) ---
     scheduler_timezone: str = "Africa/Nairobi"
     tender_cron_daily: str = "0 11,17 * * *"

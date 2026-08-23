@@ -197,17 +197,29 @@ Say the word on either and I will remove it.
 
 ---
 
-## 11. Email delivery — a scope problem worth knowing about
+## 11. Email delivery — SendGrid  **BLOCKING the tender report**
 
-The Gmail connection requests `gmail.readonly`, which **cannot send email**. The
-tender report therefore has nowhere to go today: the dispatcher records the
-attempt and reports why it could not send, rather than failing silently.
+Resolved: reports go out on SendGrid, keeping the Gmail connection `gmail.readonly`
+by design. A leaked SendGrid key can send mail but cannot read Martin's inbox —
+widening the Gmail scope would have collapsed both into one token.
 
-- [ ] **Either** add `gmail.send` to the OAuth consent screen (re-triggers
-      consent, and widens what the token can do)
-- [ ] **Or** give me a transactional sender (Resend, Postmark, SES) — my
-      recommendation: reports then come from a system address rather than
-      Martin's mailbox, and read-only Gmail stays read-only.
+- [ ] SendGrid account and an API key with **Mail Send** permission →
+      `SENDGRID_API_KEY`
+- [ ] **Verify the sender.** SendGrid → Settings → Sender Authentication. Either
+      verify a single sender address or authenticate the whole domain (better:
+      it also fixes deliverability). An unverified sender is refused with a 403,
+      and the UI will say exactly that.
+      → `REPORT_FROM_EMAIL`, optionally `REPORT_FROM_NAME` and `REPORT_REPLY_TO`
+- [ ] **Who gets the reports** → `REPORT_TO` (comma-separated)
+- [ ] **Who is CC'd** → `REPORT_CC` (comma-separated, optional)
+
+Recipients are configuration, deliberately: nothing the agent reads or produces can
+change where a report lands. An agent that could pick its own recipients could
+exfiltrate.
+
+A typo in either list is skipped and named in the delivery record rather than
+blocking the whole send — but it *is* skipped, so check the Activity screen after
+the first run.
 
 ---
 
