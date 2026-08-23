@@ -14,10 +14,14 @@ export function Empty({
   action?: React.ReactNode
 }) {
   return (
-    <div className="px-4 py-8 text-center">
-      <p className="text-ink text-sm font-medium">{title}</p>
-      {children && <p className="text-ink-faint mx-auto mt-1.5 max-w-md text-xs">{children}</p>}
-      {action && <div className="mt-3 flex justify-center">{action}</div>}
+    <div className="px-6 py-10 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      {children && (
+        <p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-xs leading-relaxed">
+          {children}
+        </p>
+      )}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   )
 }

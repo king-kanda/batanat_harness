@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Loader2, RefreshCw, TriangleAlert } from 'lucide-react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
@@ -27,7 +27,7 @@ function Dashboard() {
   })
 
   if (dashboard.isPending) {
-    return <Card><CardContent className="text-ink-faint text-xs">Loading…</CardContent></Card>
+    return <Card><CardContent className="text-muted-foreground/80 text-xs">Loading…</CardContent></Card>
   }
 
   if (dashboard.isError) {
@@ -39,10 +39,10 @@ function Dashboard() {
           <p className="text-status-down flex items-center gap-2 text-sm">
             <TriangleAlert className="size-4" aria-hidden /> {message}
           </p>
-          <pre className="bg-surface border-border-subtle text-ink-muted overflow-x-auto rounded border p-3 font-mono text-[11px]">
+          <pre className="bg-muted border-border text-muted-foreground overflow-x-auto rounded border p-3 font-mono text-[11px]">
             cd apps/api && uv run fastapi dev src/batanat_api/main.py
           </pre>
-          <p className="text-ink-faint text-[11px]">API expected at {API_BASE_URL}</p>
+          <p className="text-muted-foreground/80 text-[11px]">API expected at {API_BASE_URL}</p>
         </CardContent>
       </Card>
     )
@@ -105,11 +105,11 @@ function Dashboard() {
             data.sources.map((source) => (
               <div
                 key={source.key}
-                className="border-border-subtle flex items-baseline gap-3 border-b px-4 py-2 last:border-b-0"
+                className="border-border flex items-baseline gap-3 border-b px-4 py-2 last:border-b-0"
               >
-                <span className="text-ink w-24 shrink-0 font-mono text-xs">{source.key}</span>
-                <Badge variant={HEALTH_TONE[source.health]}>{source.health}</Badge>
-                <span className="text-ink-faint truncate text-[11px]" title={source.last_error ?? ''}>
+                <span className="text-foreground w-24 shrink-0 font-mono text-xs">{source.key}</span>
+                <StatusBadge tone={HEALTH_TONE[source.health]}>{source.health}</StatusBadge>
+                <span className="text-muted-foreground/80 truncate text-[11px]" title={source.last_error ?? ''}>
                   {source.last_error ?? source.name}
                 </span>
               </div>
@@ -128,13 +128,13 @@ function Dashboard() {
           <CardContent className="space-y-1.5 text-xs">
             {data.next_runs?.length ? (
               data.next_runs.map((job) => (
-                <div key={job.id} className="text-ink-muted flex justify-between">
+                <div key={job.id} className="text-muted-foreground flex justify-between">
                   <span className="font-mono">{job.id}</span>
                   <span className="tabular">{job.next_run_at}</span>
                 </div>
               ))
             ) : (
-              <p className="text-ink-faint">
+              <p className="text-muted-foreground/80">
                 The scheduler is off. Set <span className="font-mono">ENABLE_SCHEDULER=true</span>{' '}
                 to run tenders at 11:00 and 17:00 EAT.
               </p>
@@ -145,7 +145,7 @@ function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Recent activity</CardTitle>
-            <Link to="/activity" className="text-ink-faint text-xs hover:underline">
+            <Link to="/activity" className="text-muted-foreground/80 text-xs hover:underline">
               All runs
             </Link>
           </CardHeader>
@@ -155,13 +155,13 @@ function Dashboard() {
                 <Link
                   key={run.id}
                   to="/activity"
-                  className="border-border-subtle hover:bg-surface flex items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
+                  className="border-border hover:bg-muted flex items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
                 >
-                  <span className="text-ink-muted w-28 shrink-0 font-mono">
+                  <span className="text-muted-foreground w-28 shrink-0 font-mono">
                     {run.trigger_type}
                   </span>
-                  <Badge variant={run.status === 'succeeded' ? 'ok' : 'down'}>{run.status}</Badge>
-                  <span className="text-ink-faint truncate">{run.summary ?? '—'}</span>
+                  <StatusBadge tone={run.status === 'succeeded' ? 'ok' : 'down'}>{run.status}</StatusBadge>
+                  <span className="text-muted-foreground/80 truncate">{run.summary ?? '—'}</span>
                 </Link>
               ))
             ) : (

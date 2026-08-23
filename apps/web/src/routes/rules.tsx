@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Check, History, Loader2, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { api } from '#/lib/api'
@@ -65,7 +65,7 @@ function Rules() {
               in code, so nothing typed here can widen what the agent may do.
             </CardDescription>
           </div>
-          {active && <Badge variant="ok">v{active.version} active</Badge>}
+          {active && <StatusBadge tone="ok">v{active.version} active</StatusBadge>}
         </CardHeader>
 
         <CardContent className="space-y-3">
@@ -79,7 +79,7 @@ function Rules() {
             rows={22}
             spellCheck={false}
             placeholder="# Operating criteria…"
-            className="bg-surface border-border-subtle text-ink focus:border-accent w-full resize-y rounded border p-3 font-mono text-xs leading-relaxed outline-none"
+            className="bg-muted border-border text-foreground focus:border-ring w-full resize-y rounded border p-3 font-mono text-xs leading-relaxed outline-none"
           />
 
           {validation.data?.errors?.map((error) => (
@@ -93,11 +93,11 @@ function Rules() {
               {warning}
             </p>
           ))}
-          {message && <p className="text-ink-muted text-xs">{message}</p>}
+          {message && <p className="text-muted-foreground text-xs">{message}</p>}
 
           <div className="flex items-center gap-2">
             <Button
-              variant="primary"
+              variant="default"
               disabled={!dirty || blocked || publish.isPending}
               onClick={() => publish.mutate()}
               title={blocked ? 'Fix the errors above first' : undefined}
@@ -119,7 +119,7 @@ function Rules() {
                 Discard changes
               </Button>
             )}
-            <span className="text-ink-faint tabular ml-auto text-[11px]">
+            <span className="text-muted-foreground/80 tabular ml-auto text-[11px]">
               {draft.length.toLocaleString()} characters
             </span>
           </div>
@@ -135,23 +135,23 @@ function Rules() {
               run still traces to exactly what was live.
             </CardDescription>
           </div>
-          <History className="text-ink-faint size-4" aria-hidden />
+          <History className="text-muted-foreground/80 size-4" aria-hidden />
         </CardHeader>
         <div>
           {versions.data?.map((version) => (
             <div
               key={version.id}
               className={cn(
-                'border-border-subtle flex items-baseline gap-3 border-b px-4 py-2 text-xs last:border-b-0',
-                version.is_active && 'bg-surface',
+                'border-border flex items-baseline gap-3 border-b px-4 py-2 text-xs last:border-b-0',
+                version.is_active && 'bg-muted',
               )}
             >
-              <span className="text-ink w-10 shrink-0 font-mono">v{version.version}</span>
-              {version.is_active && <Badge variant="ok">active</Badge>}
-              <span className="text-ink-faint truncate">
+              <span className="text-foreground w-10 shrink-0 font-mono">v{version.version}</span>
+              {version.is_active && <StatusBadge tone="ok">active</StatusBadge>}
+              <span className="text-muted-foreground/80 truncate">
                 {version.notes ?? `by ${version.created_by ?? 'unknown'}`}
               </span>
-              <span className="text-ink-faint tabular ml-auto shrink-0">
+              <span className="text-muted-foreground/80 tabular ml-auto shrink-0">
                 {new Date(version.created_at).toLocaleDateString()}
               </span>
               {!version.is_active && (

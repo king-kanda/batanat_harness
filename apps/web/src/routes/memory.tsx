@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
@@ -37,11 +37,11 @@ function MemoryScreen() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…"
-          className="bg-surface border-border-subtle text-ink w-40 rounded border px-2 py-1 text-xs outline-none"
+          className="bg-muted border-border text-foreground w-40 rounded border px-2 py-1 text-xs outline-none"
         />
       </CardHeader>
 
-      {memories.isPending && <CardContent className="text-ink-faint text-xs">Loading…</CardContent>}
+      {memories.isPending && <CardContent className="text-muted-foreground/80 text-xs">Loading…</CardContent>}
       {memories.data?.length === 0 && (
         <Empty title="Nothing remembered yet">
           The nightly summariser condenses runs and classified email into memory. Semantic
@@ -53,24 +53,24 @@ function MemoryScreen() {
         {memories.data?.map((memory) => (
           <div
             key={memory.id}
-            className="border-border-subtle flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0"
+            className="border-border flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-2">
-                <Badge>{memory.layer}</Badge>
-                <Badge variant={memory.instruction_eligible ? 'ok' : 'degraded'}>
+                <StatusBadge tone="neutral">{memory.layer}</StatusBadge>
+                <StatusBadge tone={memory.instruction_eligible ? 'ok' : 'degraded'}>
                   {memory.trust_tag}
-                </Badge>
+                </StatusBadge>
                 {!memory.instruction_eligible && (
-                  <span className="text-ink-faint text-[11px]">quoted as data only</span>
+                  <span className="text-muted-foreground/80 text-[11px]">quoted as data only</span>
                 )}
               </div>
-              <p className="text-ink mt-1 text-xs">{memory.content}</p>
-              <p className="text-ink-faint text-[11px]">
+              <p className="text-foreground mt-1 text-xs">{memory.content}</p>
+              <p className="text-muted-foreground/80 text-[11px]">
                 {memory.source_ref} · {new Date(memory.created_at).toLocaleString()}
               </p>
             </div>
-            <Button variant="danger" onClick={() => remove.mutate(memory.id)}>
+            <Button variant="destructive" onClick={() => remove.mutate(memory.id)}>
               <Trash2 className="size-3" aria-hidden />
             </Button>
           </div>

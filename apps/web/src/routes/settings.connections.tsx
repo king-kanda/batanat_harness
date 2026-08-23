@@ -5,7 +5,7 @@ import { Check, Copy, Loader2, Smartphone, TriangleAlert, X } from 'lucide-react
 import { useState } from 'react'
 
 import { ConnectionCard, PROVIDER_LABEL } from '#/components/connection-card'
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { api } from '#/lib/api'
@@ -89,12 +89,12 @@ function ConnectionsPage() {
             </CardDescription>
           </div>
           {page.isFetching && (
-            <Loader2 className="text-ink-faint size-3.5 animate-spin" aria-label="loading" />
+            <Loader2 className="text-muted-foreground/80 size-3.5 animate-spin" aria-label="loading" />
           )}
         </CardHeader>
 
         {page.isPending && (
-          <CardContent className="text-ink-faint text-xs">Loading connections…</CardContent>
+          <CardContent className="text-muted-foreground/80 text-xs">Loading connections…</CardContent>
         )}
 
         {page.isError && (
@@ -130,9 +130,9 @@ function ConnectionsPage() {
             </CardDescription>
           </div>
           {data?.providers.find((p) => p.provider === 'whatsapp')?.configured ? (
-            <Badge variant="ok">configured</Badge>
+            <StatusBadge tone="ok">configured</StatusBadge>
           ) : (
-            <Badge variant="degraded">not configured</Badge>
+            <StatusBadge tone="degraded">not configured</StatusBadge>
           )}
         </CardHeader>
 
@@ -141,16 +141,16 @@ function ConnectionsPage() {
             {data.whatsapp_links.map((link) => (
               <div
                 key={link.id}
-                className="border-border-subtle flex items-center justify-between border-b px-4 py-2.5 last:border-b-0"
+                className="border-border flex items-center justify-between border-b px-4 py-2.5 last:border-b-0"
               >
                 <div className="flex items-center gap-2.5">
-                  <Smartphone className="text-ink-faint size-3.5" aria-hidden />
-                  <span className="text-ink font-mono text-xs">{link.phone_e164}</span>
-                  <span className="text-ink-faint text-[11px]">
+                  <Smartphone className="text-muted-foreground/80 size-3.5" aria-hidden />
+                  <span className="text-foreground font-mono text-xs">{link.phone_e164}</span>
+                  <span className="text-muted-foreground/80 text-[11px]">
                     linked {new Date(link.linked_at).toLocaleDateString()}
                   </span>
                 </div>
-                <Button variant="danger" onClick={() => unlink.mutate(link.id)}>
+                <Button variant="destructive" onClick={() => unlink.mutate(link.id)}>
                   <X className="size-3" aria-hidden />
                   Unlink
                 </Button>
@@ -164,9 +164,9 @@ function ConnectionsPage() {
             <PairingInstructions pairing={pairing} onDismiss={() => setPairing(null)} />
           ) : data?.whatsapp_business_number ? (
             <div className="space-y-2">
-              <p className="text-ink-muted text-xs">
+              <p className="text-muted-foreground text-xs">
                 Enter the number you want to link. We will give you a code to text to{' '}
-                <span className="text-ink font-mono">{data.whatsapp_business_number}</span> from
+                <span className="text-foreground font-mono">{data.whatsapp_business_number}</span> from
                 that handset.
               </p>
               <div className="flex gap-2">
@@ -176,10 +176,10 @@ function ConnectionsPage() {
                   onKeyDown={(e) => e.key === 'Enter' && requestCode.mutate(phoneInput)}
                   placeholder="0712 345 678"
                   inputMode="tel"
-                  className="bg-surface border-border-subtle text-ink focus:border-accent w-48 rounded border px-3 py-2 font-mono text-xs outline-none"
+                  className="bg-muted border-border text-foreground focus:border-ring w-48 rounded border px-3 py-2 font-mono text-xs outline-none"
                 />
                 <Button
-                  variant="primary"
+                  variant="default"
                   onClick={() => requestCode.mutate(phoneInput)}
                   disabled={requestCode.isPending || phoneInput.trim().length < 7}
                 >
@@ -187,12 +187,12 @@ function ConnectionsPage() {
                   Pair this number
                 </Button>
               </div>
-              <p className="text-ink-faint text-[11px]">
+              <p className="text-muted-foreground/80 text-[11px]">
                 The code only works from the number you enter here.
               </p>
             </div>
           ) : (
-            <p className="text-ink-muted text-xs">
+            <p className="text-muted-foreground text-xs">
               Set <span className="font-mono">WHATSAPP_BUSINESS_NUMBER</span> in{' '}
               <span className="font-mono">.env</span> to enable pairing.
             </p>
@@ -226,18 +226,18 @@ function PairingInstructions({
   return (
     <div className="space-y-3">
       <div className="min-w-0 flex-1 space-y-2">
-        <ol className="text-ink-muted list-inside list-decimal space-y-1 text-xs">
+        <ol className="text-muted-foreground list-inside list-decimal space-y-1 text-xs">
           <li>
-            From <span className="text-ink font-mono">{pairing.phone_e164}</span>, open WhatsApp
-            and message <span className="text-ink font-mono">{pairing.business_number}</span>.
+            From <span className="text-foreground font-mono">{pairing.phone_e164}</span>, open WhatsApp
+            and message <span className="text-foreground font-mono">{pairing.business_number}</span>.
           </li>
           <li>
-            Send exactly: <span className="text-ink font-mono">{pairing.message}</span>
+            Send exactly: <span className="text-foreground font-mono">{pairing.message}</span>
           </li>
         </ol>
 
         <div className="flex flex-wrap items-center gap-2">
-          <code className="bg-surface border-border-subtle text-ink rounded border px-2.5 py-1 font-mono text-base tracking-[0.2em]">
+          <code className="bg-muted border-border text-foreground rounded border px-2.5 py-1 font-mono text-base tracking-[0.2em]">
             {pairing.code}
           </code>
           <Button onClick={copy}>
@@ -245,14 +245,14 @@ function PairingInstructions({
             {copied ? 'Copied' : 'Copy message'}
           </Button>
           <a href={pairing.wa_me_url} target="_blank" rel="noreferrer">
-            <Button variant="primary">Open in WhatsApp</Button>
+            <Button variant="default">Open in WhatsApp</Button>
           </a>
           <Button variant="ghost" onClick={onDismiss}>
             Done
           </Button>
         </div>
 
-        <p className="text-ink-faint text-[11px]">
+        <p className="text-muted-foreground/80 text-[11px]">
           Expires in {minutesLeft} min. Single use, and only from{' '}
           <span className="font-mono">{pairing.phone_e164}</span>.
         </p>
