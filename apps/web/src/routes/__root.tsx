@@ -1,5 +1,4 @@
 import { QueryClientProvider, useQuery } from '@tanstack/react-query'
-import { TanStackDevtools } from '@tanstack/react-devtools'
 import {
   HeadContent,
   Scripts,
@@ -7,7 +6,6 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { ThemeProvider } from 'next-themes'
 import { useEffect } from 'react'
 import type * as React from 'react'
@@ -88,12 +86,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           </QueryClientProvider>
         </ThemeProvider>
 
-        {import.meta.env.DEV && (
-          <TanStackDevtools
-            config={{ position: 'bottom-left' }}
-            plugins={[{ name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> }]}
-          />
-        )}
         <Scripts />
       </body>
     </html>
