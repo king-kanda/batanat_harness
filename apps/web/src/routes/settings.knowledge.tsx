@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 import { cn } from '#/lib/utils'
@@ -61,11 +62,19 @@ function KnowledgeBase() {
   }
 
   return (
-    <div className="space-y-4">
+    <Tabs defaultValue="upload" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="upload">Upload</TabsTrigger>
+        <TabsTrigger value="documents">
+          Documents{documents.data?.length ? ` (${documents.data.length})` : ''}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="upload">
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Knowledge base</CardTitle>
+            <CardTitle>Add to the knowledge base</CardTitle>
             <CardDescription>
               Documents the agent can draw on. Text is extracted, split and embedded so it can be
               retrieved by meaning rather than keyword.
@@ -157,7 +166,9 @@ function KnowledgeBase() {
           </p>
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="documents">
       <Card>
         <CardHeader>
           <CardTitle>Uploaded documents</CardTitle>
@@ -206,6 +217,7 @@ function KnowledgeBase() {
           ))}
         </div>
       </Card>
-    </div>
+      </TabsContent>
+    </Tabs>
   )
 }

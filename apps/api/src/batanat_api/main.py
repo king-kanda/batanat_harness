@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from batanat_api.agent import tools as _tools  # noqa: F401 — registers every tool
 from batanat_api.agent.capabilities import audit_policy, validate_policy
 from batanat_api.api.operations import router as operations_router
+from batanat_api.auth.router import router as auth_router
 from batanat_api.config import get_settings
 from batanat_api.connections.router import router as connections_router
 from batanat_api.connections.service import register_refreshers
@@ -35,6 +36,10 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+
+    # Fail the boot rather than serve with development credentials.
+    settings.assert_safe_for_environment()
+
     log.info(
         "api.startup",
         version=__version__,
@@ -124,6 +129,7 @@ def create_app() -> FastAPI:
     app.include_router(connections_router)
     app.include_router(whatsapp_webhook_router)
     app.include_router(gmail_webhook_router)
+    app.include_router(auth_router)
     app.include_router(operations_router)
 
     @app.exception_handler(Exception)

@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 
@@ -16,7 +17,13 @@ function AuditLog() {
   const policy = useQuery({ queryKey: ['policy'], queryFn: api.policy })
 
   return (
-    <div className="space-y-4">
+    <Tabs defaultValue="runs" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="runs">Run log</TabsTrigger>
+        <TabsTrigger value="policy">Capability policy</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="policy">
       <Card>
         <CardHeader>
           <div>
@@ -52,7 +59,9 @@ function AuditLog() {
             ))}
         </div>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="runs">
       <Card>
         <CardHeader>
           <div>
@@ -74,7 +83,8 @@ function AuditLog() {
           {runs.data?.map((run) => <RunRow key={run.id} run={run} />)}
         </div>
       </Card>
-    </div>
+      </TabsContent>
+    </Tabs>
   )
 }
 

@@ -5,6 +5,7 @@ import { ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 import { cn } from '#/lib/utils'
@@ -21,27 +22,19 @@ const CATEGORY_TONE = {
 } as const
 
 function Results() {
-  const [tab, setTab] = useState<'emails' | 'tenders'>('emails')
-
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 text-xs">
-        {(['emails', 'tenders'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={cn(
-              'rounded px-3 py-1.5 capitalize transition-colors',
-              tab === value ? 'bg-card text-foreground' : 'text-muted-foreground/80 hover:text-foreground',
-            )}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
-      {tab === 'emails' ? <Emails /> : <Tenders />}
-    </div>
+    <Tabs defaultValue="emails" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="emails">Opportunities</TabsTrigger>
+        <TabsTrigger value="tenders">Tenders</TabsTrigger>
+      </TabsList>
+      <TabsContent value="emails">
+        <Emails />
+      </TabsContent>
+      <TabsContent value="tenders">
+        <Tenders />
+      </TabsContent>
+    </Tabs>
   )
 }
 

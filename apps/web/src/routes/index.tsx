@@ -66,7 +66,14 @@ function Home() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div
+      className={cn(
+        'mx-auto flex w-full max-w-2xl flex-col gap-6',
+        // Empty state sits in the middle of the viewport; once there is a
+        // transcript it anchors to the top so replies grow downward.
+        turns.length === 0 && 'min-h-[calc(100svh-9rem)] justify-center pb-16',
+      )}
+    >
       {greetingMounted && (
         <div
           className={cn(
@@ -182,9 +189,9 @@ function Greeting() {
   ]
 
   return (
-    <div className="space-y-5 pt-4">
+    <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+        <h2 className="text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">
           What do you need to{' '}
           <span className="text-italic-serif font-normal">know today</span>?
         </h2>

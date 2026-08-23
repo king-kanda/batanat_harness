@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as ResultsRouteImport } from './routes/results'
 import { Route as RulesRouteImport } from './routes/rules'
@@ -33,6 +34,11 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MemoryRoute = MemoryRouteImport.update({
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/login'
     | '/memory'
     | '/results'
     | '/rules'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/login'
     | '/memory'
     | '/results'
     | '/rules'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/login'
     | '/memory'
     | '/results'
     | '/rules'
@@ -151,6 +163,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
+  LoginRoute: typeof LoginRoute
   MemoryRoute: typeof MemoryRoute
   ResultsRoute: typeof ResultsRoute
   RulesRoute: typeof RulesRoute
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/memory': {
@@ -239,6 +259,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
+  LoginRoute: LoginRoute,
   MemoryRoute: MemoryRoute,
   ResultsRoute: ResultsRoute,
   RulesRoute: RulesRoute,

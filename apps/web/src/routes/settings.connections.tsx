@@ -8,6 +8,7 @@ import { ConnectionCard, PROVIDER_LABEL } from '#/components/connection-card'
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { api } from '#/lib/api'
 
 type Search = { connected?: string; error?: string }
@@ -80,6 +81,15 @@ function ConnectionsPage() {
         <Banner tone="down">{actionError ?? search.error}</Banner>
       )}
 
+      <Tabs defaultValue="providers" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="providers">Gmail &amp; Zoho</TabsTrigger>
+        <TabsTrigger value="whatsapp">
+          WhatsApp{data?.whatsapp_links.length ? ` (${data.whatsapp_links.length})` : ''}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="providers">
       <Card>
         <CardHeader>
           <div>
@@ -120,7 +130,9 @@ function ConnectionsPage() {
           </div>
         )}
       </Card>
+      </TabsContent>
 
+      <TabsContent value="whatsapp">
       <Card>
         <CardHeader>
           <div>
@@ -199,6 +211,8 @@ function ConnectionsPage() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+      </Tabs>
     </div>
   )
 }

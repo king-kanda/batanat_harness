@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { api } from '#/lib/api'
 import { cn } from '#/lib/utils'
 
@@ -55,7 +56,15 @@ function Rules() {
   const blocked = validation.data?.ok === false
 
   return (
-    <div className="space-y-4">
+    <Tabs defaultValue="editor" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="editor">Editor</TabsTrigger>
+        <TabsTrigger value="history">
+          History{versions.data?.length ? ` (${versions.data.length})` : ''}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="editor">
       <Card>
         <CardHeader>
           <div>
@@ -125,7 +134,9 @@ function Rules() {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="history">
       <Card>
         <CardHeader>
           <div>
@@ -167,6 +178,7 @@ function Rules() {
           ))}
         </div>
       </Card>
-    </div>
+      </TabsContent>
+    </Tabs>
   )
 }

@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, useRouterState } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   Brain,
   CheckSquare,
@@ -10,9 +10,11 @@ import {
   Radio,
   ScrollText,
   ScrollText as AuditIcon,
+  LogOut,
 } from 'lucide-react'
 
 import { StatusDot, toneFor } from '#/components/status-badge'
+import { Button } from '#/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
@@ -53,6 +55,19 @@ export function AppSidebar() {
     queryKey: ['dashboard'],
     queryFn: api.dashboard,
     refetchInterval: 60_000,
+  })
+
+  const auth = useQuery({ queryKey: ['auth-me'], queryFn: api.auth.me, retry: false })
+
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const signOut = useMutation({
+    mutationFn: api.auth.logout,
+    onSuccess: () => {
+      // Drop every cached response — none of it belongs to whoever signs in next.
+      queryClient.clear()
+      navigate({ to: '/login' })
+    },
   })
 
   const pending = dashboard.data?.pending_approvals ?? 0
@@ -124,6 +139,22 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:hidden">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-medium">{auth.data?.name ?? 'Signed in'}</div>
+            <div className="text-muted-foreground truncate text-[11px]">{auth.data?.email}</div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => signOut.mutate()}
+            disabled={signOut.isPending}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="size-3.5" aria-hidden />
+          </Button>
+        </div>
         <div className="text-muted-foreground flex items-center gap-2 px-2 py-1.5 text-[11px] group-data-[collapsible=icon]:hidden">
           <StatusDot tone={toneFor(health)} />
           {failing > 0

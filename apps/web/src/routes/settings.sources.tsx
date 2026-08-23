@@ -5,6 +5,7 @@ import { Loader2, RefreshCw, TriangleAlert } from 'lucide-react'
 import { StatusBadge, toneFor } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 
@@ -38,6 +39,13 @@ function Sources() {
         </div>
       )}
 
+      <Tabs defaultValue="sources" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="sources">Sources</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="sources">
       <Card>
         <CardHeader>
           <div>
@@ -79,7 +87,9 @@ function Sources() {
           )}
         </div>
       </Card>
+      </TabsContent>
 
+      <TabsContent value="schedule">
       <Card>
         <CardHeader>
           <div>
@@ -103,6 +113,8 @@ function Sources() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+      </Tabs>
     </div>
   )
 }
