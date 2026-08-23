@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
 
@@ -27,6 +28,17 @@ function Approvals() {
         </div>
       )}
 
+      <Tabs defaultValue="pending" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="pending">
+          Pending{pending.length ? ` (${pending.length})` : ''}
+        </TabsTrigger>
+        <TabsTrigger value="decided">
+          Decided{decided.length ? ` (${decided.length})` : ''}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="pending">
       <Card>
         <CardHeader>
           <div>
@@ -54,8 +66,9 @@ function Approvals() {
           ))}
         </div>
       </Card>
+      </TabsContent>
 
-      {decided.length > 0 && (
+      <TabsContent value="decided">
         <Card>
           <CardHeader>
             <CardTitle>Decided</CardTitle>
@@ -85,8 +98,14 @@ function Approvals() {
               </div>
             ))}
           </div>
+          {decided.length === 0 && (
+            <Empty title="Nothing decided yet">
+              Approvals you approve or reject appear here, with what was written and when.
+            </Empty>
+          )}
         </Card>
-      )}
+      </TabsContent>
+      </Tabs>
     </div>
   )
 }

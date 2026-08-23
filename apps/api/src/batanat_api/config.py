@@ -48,6 +48,35 @@ class Settings(BaseSettings):
     token_encryption_key: str | None = None
     session_secret: str | None = None
 
+    # The seeded account's password. Convenient in development, and refused
+    # outright outside it — see `assert_safe_for_environment`.
+    default_user_email: str = "martin@batanat.co.ke"
+    default_user_password: str = "batanat-dev"
+
+    def assert_safe_for_environment(self) -> None:
+        """Refuse to run with development defaults anywhere but local.
+
+        A default password that ships is not a default, it is a backdoor. This
+        turns "we meant to change that" into a failed boot.
+        """
+        if self.app_env == "local":
+            return
+
+        problems: list[str] = []
+        if self.default_user_password == "batanat-dev":
+            problems.append(
+                "DEFAULT_USER_PASSWORD is still the development default. Set a real one."
+            )
+        if not self.session_secret:
+            problems.append("SESSION_SECRET is not set.")
+        if not self.token_encryption_key:
+            problems.append("TOKEN_ENCRYPTION_KEY is not set.")
+
+        if problems:
+            raise RuntimeError(
+                f"Refusing to start with APP_ENV={self.app_env}: " + " ".join(problems)
+            )
+
     # --- providers (phase 2) ---
     google_client_id: str | None = None
     google_client_secret: str | None = None

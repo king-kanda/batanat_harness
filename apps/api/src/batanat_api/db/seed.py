@@ -12,15 +12,17 @@ import hashlib
 
 from sqlalchemy import select
 
+from batanat_api.config import get_settings
 from batanat_api.core.logging import configure_logging, get_logger
 from batanat_api.db import enums
 from batanat_api.db.models import SkillVersion, TenderSourceRow, User
 from batanat_api.db.mongo import ensure_indexes
 from batanat_api.db.session import session_scope
+from batanat_api.security.passwords import hash_password
 
 log = get_logger(__name__)
 
-DEMO_EMAIL = "martin@batanat.co.ke"
+DEMO_EMAIL = get_settings().default_user_email
 DEMO_NAME = "Martin"
 
 # The five sources named in the PRD. `adapter` is resolved to a class in phase 4.
@@ -124,6 +126,19 @@ async def seed() -> None:
         else:
             log.info("seed.user.exists", email=DEMO_EMAIL, user_id=str(user.id))
 
+        # Give the account a password if it has none. Never overwrite one that
+        # exists — re-seeding must not silently reset a changed password back to
+        # the development default.
+        if user.password_hash is None:
+            settings = get_settings()
+            user.password_hash = hash_password(settings.default_user_password)
+            await session.flush()
+            log.warning(
+                "seed.password.set",
+                email=user.email,
+                detail="Development default. Change it before this leaves your machine.",
+            )
+
         existing_keys = set((await session.execute(select(TenderSourceRow.key))).scalars().all())
         for source in TENDER_SOURCES:
             if source["key"] in existing_keys:
@@ -158,6 +173,13 @@ async def seed() -> None:
             log.info("seed.skill.created", version=1)
 
     await ensure_indexes()
+
+    settings = get_settings()
+    print(
+        f"\nSign in at {settings.web_public_url}/login\n"
+        f"  email    {settings.default_user_email}\n"
+        f"  password {settings.default_user_password}\n"
+    )
 
 
 def main() -> None:

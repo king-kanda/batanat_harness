@@ -35,10 +35,16 @@ that gets committed.
 
 ## 1. Decisions I need from you
 
-- [ ] **Single user or multi-tenant?** The schema supports many users. If this is only ever Martin,
-      I will keep one seeded user and skip login. If others will use it, I need to add
-      authentication — there is no auth phase anywhere in the PRD.
-      *Currently assuming: single user, seeded, no login.*
+- [x] **Authentication** — built. Session cookie, scrypt password hashing, login screen.
+      Seeded account is `martin@batanat.co.ke` / `batanat-dev`.
+- [ ] **Change the default password before this leaves your machine.** Set
+      `DEFAULT_USER_PASSWORD` in `.env`, then `make reset-db` (or clear
+      `users.password_hash` and re-seed). The API refuses to start with the
+      development default once `APP_ENV` is not `local`, so this cannot ship by
+      accident — but it will stop your first deploy until you do it.
+- [ ] **Single user or multi-tenant?** The schema supports many users and login works for any
+      of them, but there is no sign-up, no invite flow and no roles. If more than Martin needs
+      access, tell me and I will add user management.
 
 - [ ] **Can the chat commit CRM writes directly?** Invariant 3 allows a trusted turn with "explicit
       confirmation" to bypass the approval queue, but does not define what confirmation means.

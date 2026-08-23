@@ -59,6 +59,10 @@ class User(Base, TimestampMixin):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Africa/Nairobi")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
+    #: scrypt hash, never a password. Null means the account cannot sign in yet.
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     connections: Mapped[list[Connection]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

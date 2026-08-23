@@ -1,8 +1,15 @@
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { ThemeProvider } from 'next-themes'
+import { useEffect } from 'react'
 import type * as React from 'react'
 
 import { AppSidebar } from '#/components/app-sidebar'
@@ -10,6 +17,7 @@ import { ModeToggle } from '#/components/mode-toggle'
 import { Separator } from '#/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
 import { Toaster } from '#/components/ui/sonner'
+import { api } from '#/lib/api'
 import { getQueryClient } from '#/lib/query-client'
 import appCss from '../styles.css?url'
 
@@ -24,6 +32,7 @@ const TITLES: Record<string, string> = {
   '/settings/knowledge': 'Knowledge base',
   '/settings/sources': 'Sources & schedule',
   '/settings/connections': 'Connections',
+  '/login': 'Sign in',
 }
 
 export const Route = createRootRoute({
@@ -69,7 +78,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               aria-hidden
               className="dotted-grid bg-background pointer-events-none fixed inset-0 -z-10"
             />
-            <AppShell>{children}</AppShell>
+            <AuthGate>{children}</AuthGate>
             <Toaster position="bottom-right" />
           </QueryClientProvider>
         </ThemeProvider>
@@ -84,6 +93,43 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   )
+}
+
+/**
+ * Routes the user to the login screen when there is no session.
+ *
+ * This is UX, not security. Every API endpoint refuses an unauthenticated
+ * request on its own — this only saves the user from a screen full of failed
+ * requests. Treating a client-side guard as the control would be a mistake.
+ */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const navigate = useNavigate()
+  const onLoginPage = pathname === '/login'
+
+  const auth = useQuery({
+    queryKey: ['auth-me'],
+    queryFn: api.auth.me,
+    retry: false,
+    enabled: !onLoginPage,
+    staleTime: 60_000,
+  })
+
+  useEffect(() => {
+    if (!onLoginPage && auth.isError) navigate({ to: '/login' })
+  }, [onLoginPage, auth.isError, navigate])
+
+  if (onLoginPage) return <>{children}</>
+
+  if (auth.isPending || auth.isError) {
+    return (
+      <div className="text-muted-foreground flex min-h-svh items-center justify-center text-sm">
+        {auth.isError ? 'Redirecting to sign in…' : 'Loading…'}
+      </div>
+    )
+  }
+
+  return <AppShell>{children}</AppShell>
 }
 
 function AppShell({ children }: { children: React.ReactNode }) {

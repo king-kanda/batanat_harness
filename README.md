@@ -218,6 +218,7 @@ the Docker build so it regresses loudly rather than silently months from now.
 
 | Route | What it is for |
 |---|---|
+| `/login` | Sign in. Seeded credentials are shown on the page in development only |
 | `/` | **Chat** — the front door. Opens with a summary of what is waiting, which retracts once you start typing. Each card links to where that thing lives |
 | `/approvals` | The queue. Field-level diff, approve / reject / edit-then-approve |
 | `/results` | Classified email and tenders, with 👍/👎 that feed `make eval` |
@@ -228,6 +229,28 @@ the Docker build so it regresses loudly rather than silently months from now.
 | `/settings/sources` | Tender source health and the schedule |
 | `/settings/connections` | Gmail, Zoho, WhatsApp pairing, token expiry warnings |
 | `/reports/tenders/:label` | The permalink every report email and alert links to |
+
+## Authentication
+
+Session-based: an opaque token in Redis, referenced by an HttpOnly cookie. Not a JWT —
+a JWT cannot be revoked without server state anyway, and once you are keeping server state
+the token may as well carry nothing worth forging. Signing out actually ends the session.
+
+Passwords are hashed with `hashlib.scrypt` from the standard library (n=2^15, r=8, p=1,
+~450ms per hash). No bcrypt or argon2 dependency, and the stored form carries its own
+parameters so the cost can be raised later without invalidating existing hashes.
+
+```
+email     martin@batanat.co.ke
+password  batanat-dev
+```
+
+Seeded by `make seed`, and shown on the login page in development. **The API refuses to
+start when `APP_ENV` is anything other than `local` and the password is still this** — a
+default password that ships is not a default, it is a backdoor.
+
+Every API endpoint requires the session; the client-side route guard is only there to save
+the user from a screen of failed requests.
 
 ## Model providers
 

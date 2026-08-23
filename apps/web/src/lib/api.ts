@@ -55,6 +55,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
+      // The session lives in an HttpOnly cookie, and the API is a different
+      // origin in development, so it is only sent when asked for explicitly.
+      credentials: 'include',
       headers: {
         'x-run-id': runId,
         ...(init?.body && !(init.body instanceof FormData)
@@ -87,7 +90,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined })
 
+export type CurrentUser = {
+  id: string
+  email: string
+  name: string | null
+  timezone: string
+  using_default_password: boolean
+}
+
 export const api = {
+  auth: {
+    me: () => request<CurrentUser>('/api/auth/me'),
+    login: (email: string, password: string) =>
+      post<CurrentUser>('/api/auth/login', { email, password }),
+    logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+  },
+
   health: () => request<HealthResponse>('/api/health'),
   dashboard: () => request<DashboardView>('/api/dashboard'),
   policy: () => request<Record<string, { trust: string; tools: string[] }>>('/api/policy'),
