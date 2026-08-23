@@ -1291,6 +1291,94 @@
       "title": "ServiceStatus",
       "type": "string"
     },
+    "SkillDraftMessage": {
+      "properties": {
+        "role": {
+          "description": "user | assistant",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "SkillDraftMessage",
+      "type": "object"
+    },
+    "SkillDraftRequest": {
+      "properties": {
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/SkillDraftMessage"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Messages",
+          "type": "array"
+        },
+        "current_content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Content"
+        }
+      },
+      "required": [
+        "messages"
+      ],
+      "title": "SkillDraftRequest",
+      "type": "object"
+    },
+    "SkillDraftResponse": {
+      "properties": {
+        "reply": {
+          "title": "Reply",
+          "type": "string"
+        },
+        "proposed_content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A complete replacement document, when the assistant produced one. Never published automatically.",
+          "title": "Proposed Content"
+        },
+        "validation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillValidationView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "reply"
+      ],
+      "title": "SkillDraftResponse",
+      "type": "object"
+    },
     "SkillValidationView": {
       "properties": {
         "ok": {

@@ -36,6 +36,7 @@ export type {
   ScheduledRunView,
   ServiceHealth,
   ServiceStatus,
+  SkillDraftResponse,
   SkillValidationView,
   SkillVersionView,
   SourceHealth,

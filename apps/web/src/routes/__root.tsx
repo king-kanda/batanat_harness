@@ -13,6 +13,8 @@ import { useEffect } from 'react'
 import type * as React from 'react'
 
 import { AppSidebar } from '#/components/app-sidebar'
+import { ModeNotice } from '#/components/mode-notice'
+import { Tour } from '#/components/tour'
 import { ModeToggle } from '#/components/mode-toggle'
 import { Separator } from '#/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
@@ -31,6 +33,8 @@ const TITLES: Record<string, string> = {
   '/memory': 'Memory',
   '/settings/knowledge': 'Knowledge base',
   '/settings/sources': 'Sources & schedule',
+  '/onboarding': 'Get started',
+  '/settings/rules-assistant': 'Rules assistant',
   '/settings/connections': 'Connections',
   '/login': 'Sign in',
 }
@@ -79,6 +83,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               className="dotted-grid bg-background pointer-events-none fixed inset-0 -z-10"
             />
             <AuthGate>{children}</AuthGate>
+            <Tour />
             <Toaster position="bottom-right" />
           </QueryClientProvider>
         </ThemeProvider>
@@ -144,10 +149,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 !h-4" />
           <h1 className="text-sm font-semibold tracking-tight">{title}</h1>
-          <div className="ml-auto">
+          <div className="ml-auto" data-tour="theme-toggle">
             <ModeToggle />
           </div>
         </header>
+        <ModeNotice />
         <main className="flex-1 p-4 md:p-6">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>

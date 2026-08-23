@@ -248,6 +248,24 @@ export interface ServiceHealth {
 /** Health of a single dependency. */
 export type ServiceStatus = "ok" | "degraded" | "down";
 
+export interface SkillDraftMessage {
+  /** user | assistant */
+  role: string;
+  content: string;
+}
+
+export interface SkillDraftRequest {
+  messages: SkillDraftMessage[];
+  current_content?: string | null;
+}
+
+export interface SkillDraftResponse {
+  reply: string;
+  /** A complete replacement document, when the assistant produced one. Never published automatically. */
+  proposed_content?: string | null;
+  validation?: SkillValidationView | null;
+}
+
 export interface SkillValidationView {
   ok: boolean;
   errors?: string[];

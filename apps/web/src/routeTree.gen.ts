@@ -14,10 +14,12 @@ import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as OpportunitiesRouteImport } from './routes/opportunities'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
+import { Route as SettingsRulesAssistantRouteImport } from './routes/settings.rules-assistant'
 import { Route as SettingsSourcesRouteImport } from './routes/settings.sources'
 import { Route as ReportsTendersLabelRouteImport } from './routes/reports.tenders.$label'
 
@@ -46,6 +48,11 @@ const MemoryRoute = MemoryRouteImport.update({
   path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OpportunitiesRoute = OpportunitiesRouteImport.update({
   id: '/opportunities',
   path: '/opportunities',
@@ -66,6 +73,11 @@ const SettingsKnowledgeRoute = SettingsKnowledgeRouteImport.update({
   path: '/settings/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRulesAssistantRoute = SettingsRulesAssistantRouteImport.update({
+  id: '/settings/rules-assistant',
+  path: '/settings/rules-assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsSourcesRoute = SettingsSourcesRouteImport.update({
   id: '/settings/sources',
   path: '/settings/sources',
@@ -83,10 +95,12 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
@@ -96,10 +110,12 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
@@ -110,10 +126,12 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
 }
@@ -125,10 +143,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
+    | '/onboarding'
     | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
   fileRoutesByTo: FileRoutesByTo
@@ -138,10 +158,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
+    | '/onboarding'
     | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
   id:
@@ -151,10 +173,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/login'
     | '/memory'
+    | '/onboarding'
     | '/opportunities'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
   fileRoutesById: FileRoutesById
@@ -165,10 +189,12 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   LoginRoute: typeof LoginRoute
   MemoryRoute: typeof MemoryRoute
+  OnboardingRoute: typeof OnboardingRoute
   OpportunitiesRoute: typeof OpportunitiesRoute
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
+  SettingsRulesAssistantRoute: typeof SettingsRulesAssistantRoute
   SettingsSourcesRoute: typeof SettingsSourcesRoute
   ReportsTendersLabelRoute: typeof ReportsTendersLabelRoute
 }
@@ -210,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/opportunities': {
       id: '/opportunities'
       path: '/opportunities'
@@ -238,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsKnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/rules-assistant': {
+      id: '/settings/rules-assistant'
+      path: '/settings/rules-assistant'
+      fullPath: '/settings/rules-assistant'
+      preLoaderRoute: typeof SettingsRulesAssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/sources': {
       id: '/settings/sources'
       path: '/settings/sources'
@@ -261,10 +301,12 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   LoginRoute: LoginRoute,
   MemoryRoute: MemoryRoute,
+  OnboardingRoute: OnboardingRoute,
   OpportunitiesRoute: OpportunitiesRoute,
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsKnowledgeRoute: SettingsKnowledgeRoute,
+  SettingsRulesAssistantRoute: SettingsRulesAssistantRoute,
   SettingsSourcesRoute: SettingsSourcesRoute,
   ReportsTendersLabelRoute: ReportsTendersLabelRoute,
 }

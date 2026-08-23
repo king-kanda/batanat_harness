@@ -35,6 +35,8 @@ from batanat_api.contracts.operations import (
     ReportView,
     RunView,
     ScheduledRunView,
+    SkillDraftRequest,
+    SkillDraftResponse,
     SkillValidationView,
     SkillVersionView,
     SourceHealthView,
@@ -501,6 +503,37 @@ async def publish_skill(
         created_by=version.created_by,
         notes=version.notes,
         created_at=version.created_at,
+    )
+
+
+@router.post("/skill/draft", response_model=SkillDraftResponse, summary="Draft rules with help")
+async def draft_skill(body: SkillDraftRequest, user: CurrentUser) -> SkillDraftResponse:
+    """Talk through the criteria and get a complete document back.
+
+    No tools are bound to this — it is a conversation about the business, not an
+    agent run. Whatever it produces lands in the editor and is validated like
+    anything else; publishing is still a human pressing a button.
+    """
+    from batanat_api.agent.skill_assistant import draft_rules
+
+    try:
+        result = await draft_rules([m.model_dump() for m in body.messages], body.current_content)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from None
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"The model call failed: {type(exc).__name__}"
+        ) from None
+
+    validation = None
+    if result.proposed_content:
+        checked = skill_service.validate_skill_content(result.proposed_content)
+        validation = SkillValidationView(
+            ok=checked.ok, errors=checked.errors, warnings=checked.warnings
+        )
+
+    return SkillDraftResponse(
+        reply=result.reply, proposed_content=result.proposed_content, validation=validation
     )
 
 
