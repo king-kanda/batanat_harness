@@ -262,7 +262,8 @@ async def test_a_tool_failure_is_returned_to_the_model_not_raised(session, user,
     )
 
     assert result.status is enums.RunStatus.succeeded
-    assert "phase 4" in result.tool_calls[0]["error"]
+    assert "ConnectionNotFoundError" in result.tool_calls[0]["error"]
+    assert result.tool_calls[0]["result"] is None
 
 
 async def test_invalid_tool_arguments_are_reported_not_crashed(session, user, breaker) -> None:

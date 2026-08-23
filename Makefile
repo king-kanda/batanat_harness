@@ -79,6 +79,14 @@ reset-db: ## Drop everything and rebuild from migrations, then seed
 sources: ## Probe every tender source live and report which ones work
 	cd $(API_DIR) && $(abspath $(UV)) run python -m batanat_api.tenders.probe
 
+.PHONY: demo
+demo: ## Load demo fixtures — a working system with zero credentials
+	cd $(API_DIR) && $(abspath $(UV)) run python -m batanat_api.demo.fixtures
+
+.PHONY: eval
+eval: ## Precision and recall from the thumbs feedback
+	cd $(API_DIR) && $(abspath $(UV)) run python -m batanat_api.evals.harness
+
 # --- quality -----------------------------------------------------------------
 
 .PHONY: check

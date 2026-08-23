@@ -76,6 +76,23 @@ class Settings(BaseSettings):
     tool_circuit_breaker_threshold: int = 3
     tool_circuit_breaker_cooldown_s: int = 900
 
+    # --- scheduling (phase 5) ---
+    scheduler_timezone: str = "Africa/Nairobi"
+    tender_cron_daily: str = "0 11,17 * * *"
+    tender_cron_weekly: str = "0 8 * * 1"
+    maintenance_cron: str = "0 2 * * *"
+    # Off by default so tests and one-off scripts never start cron jobs.
+    enable_scheduler: bool = False
+
+    # --- gmail push (phase 5) ---
+    gmail_pubsub_topic: str | None = None
+    gmail_pubsub_audience: str | None = None
+    gmail_pubsub_service_account: str | None = None
+
+    # --- memory (phase 8) ---
+    embeddings_provider: str = "fastembed"
+    embeddings_model: str = "BAAI/bge-small-en-v1.5"
+
     # --- operational guards (enforced from phase 3 onward) ---
     kill_switch: bool = False
     crm_dry_run: bool = True

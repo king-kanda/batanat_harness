@@ -10,6 +10,12 @@ import appCss from '../styles.css?url'
 
 const NAV = [
   { to: '/', label: 'Dashboard' },
+  { to: '/approvals', label: 'Approvals' },
+  { to: '/results', label: 'Results' },
+  { to: '/activity', label: 'Activity' },
+  { to: '/rules', label: 'Rules' },
+  { to: '/memory', label: 'Memory' },
+  { to: '/chat', label: 'Chat' },
   { to: '/settings/connections', label: 'Connections' },
 ] as const
 
@@ -35,7 +41,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
+          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8">
             <header className="mb-8 flex items-center gap-4">
               <div className="flex items-center gap-2.5">
                 <Activity className="text-accent size-5" aria-hidden />
@@ -60,10 +66,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <main className="flex-1">{children}</main>
           </div>
         </QueryClientProvider>
-        <TanStackDevtools
-          config={{ position: 'bottom-right' }}
-          plugins={[{ name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> }]}
-        />
+        {/* Dev only: the panel overlays the page and intercepts clicks. */}
+        {import.meta.env.DEV && (
+          <TanStackDevtools
+            config={{ position: 'bottom-right' }}
+            plugins={[{ name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> }]}
+          />
+        )}
         <Scripts />
       </body>
     </html>

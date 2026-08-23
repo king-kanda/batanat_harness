@@ -126,6 +126,24 @@ make web
 The API **creates its Postgres database at startup** if it does not exist, so there is no manual
 provisioning step. Tables arrive with Alembic in phase 1.
 
+### See it working without any credentials
+
+```bash
+make demo
+```
+
+Seeds a demo user, four classified emails (including one carrying a prompt
+injection, so you can see what the system does with it), four tenders, a run
+with a full audit trail, and a pending CRM approval. No external calls.
+
+Other commands worth knowing:
+
+```bash
+make sources    # probe every tender source live and print which ones work
+make eval       # precision and recall from the 👍/👎 feedback
+make reset-db   # drop, re-migrate, re-seed
+```
+
 ### Everything CI runs
 
 ```bash
@@ -195,6 +213,20 @@ the Docker build so it regresses loudly rather than silently months from now.
 
 ---
 
+## Screens
+
+| Route | What it is for |
+|---|---|
+| `/` | Today's opportunities and tenders, pending approvals, source health, next run |
+| `/approvals` | The queue. Field-level diff, approve / reject / edit-then-approve |
+| `/results` | Classified email and tenders, with 👍/👎 that feed `make eval` |
+| `/activity` | Run timeline. Expand a run for every tool call, its cost and the Skill.MD version |
+| `/rules` | Skill.MD editor with live validation, version history and rollback |
+| `/memory` | View, search and delete memories; trust tag shown on every row |
+| `/chat` | A trusted turn with the full toolbelt. Writes still queue for approval |
+| `/settings/connections` | Gmail, Zoho, WhatsApp pairing, token expiry warnings |
+| `/reports/tenders/:label` | The permalink every report email and alert links to |
+
 ## Observability
 
 Every unit of work — an HTTP request, a scheduled run, a webhook delivery — carries a `run_id`.
@@ -238,9 +270,9 @@ never logged must not depend on every future author remembering it.
 | 1 | Data layer: migrations, token vault | **done** |
 | 2 | Connections: Gmail, Zoho, WhatsApp pairing | **done** (needs client credentials to verify live) |
 | 3 | Agent runtime: capability resolver, limits, kill switch | **done** |
-| 4 | Tools: email, tender sources, CRM | **partial** — tender pipeline done; email/CRM tools awaiting credentials |
-| 5 | Triggers: Gmail Pub/Sub, tender cron, maintenance | not started |
-| 6 | Validation, approvals, notification dispatch | not started |
-| 7 | Frontend: six routes, chat, report permalinks | not started |
-| 8 | Memory: Qdrant, selective retrieval, summarising agent | not started |
-| 9 | Evals, demo mode, docs | not started |
+| 4 | Tools: email, tender sources, CRM | **done** (Gmail/Zoho need credentials to run live) |
+| 5 | Triggers: Gmail Pub/Sub, tender cron, maintenance | **done** |
+| 6 | Validation, approvals, notification dispatch | **done** |
+| 7 | Frontend: eight routes, chat, report permalinks | **done** |
+| 8 | Memory: Qdrant, selective retrieval, summarising agent | **done** |
+| 9 | Evals, demo mode, docs | **done** |
