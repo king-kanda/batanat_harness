@@ -82,7 +82,7 @@ function ConnectionsPage() {
       )}
 
       <Tabs defaultValue="providers" className="space-y-4">
-      <TabsList>
+      <TabsList data-tour="connections-panel">
         <TabsTrigger value="providers">Gmail &amp; Zoho</TabsTrigger>
         <TabsTrigger value="whatsapp">
           WhatsApp{data?.whatsapp_links.length ? ` (${data.whatsapp_links.length})` : ''}
@@ -188,7 +188,7 @@ function ConnectionsPage() {
                   onKeyDown={(e) => e.key === 'Enter' && requestCode.mutate(phoneInput)}
                   placeholder="0712 345 678"
                   inputMode="tel"
-                  className="bg-muted border-border text-foreground focus:border-ring w-48 rounded border px-3 py-2 font-mono text-xs outline-none"
+                  className="bg-muted border-border text-foreground focus:border-ring w-48 rounded-lg border px-3 py-2 font-mono text-xs outline-none"
                 />
                 <Button
                   variant="default"
@@ -251,7 +251,7 @@ function PairingInstructions({
         </ol>
 
         <div className="flex flex-wrap items-center gap-2">
-          <code className="bg-muted border-border text-foreground rounded border px-2.5 py-1 font-mono text-base tracking-[0.2em]">
+          <code className="bg-muted border-border text-foreground rounded-lg border px-2.5 py-1 font-mono text-base tracking-[0.2em]">
             {pairing.code}
           </code>
           <Button onClick={copy}>

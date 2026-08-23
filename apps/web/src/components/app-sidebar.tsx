@@ -35,23 +35,23 @@ import { useOnboarding } from '#/lib/onboarding'
 
 /** Day to day: the things you act on. */
 const WORK = [
-  { to: '/', label: 'Chat', icon: MessageSquare, tour: 'nav-chat' },
-  { to: '/opportunities', label: 'Opportunities', icon: ListChecks, tour: 'nav-opportunities' },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare, tour: 'nav-approvals' },
+  { to: '/', label: 'Chat', icon: MessageSquare },
+  { to: '/opportunities', label: 'Opportunities', icon: ListChecks },
+  { to: '/approvals', label: 'Approvals', icon: CheckSquare },
 ] as const
 
 /** Looking back: what the assistant did and what it knows. */
 const REVIEW = [
-  { to: '/audit', label: 'Audit logs', icon: AuditIcon, tour: 'nav-audit' },
-  { to: '/memory', label: 'Memory', icon: Brain, tour: 'nav-memory' },
+  { to: '/audit', label: 'Audit logs', icon: AuditIcon },
+  { to: '/memory', label: 'Memory', icon: Brain },
 ] as const
 
 /** Teaching it: the things you change to alter its behaviour. */
 const CONFIGURE = [
-  { to: '/rules', label: 'Rules', icon: ScrollText, tour: 'nav-rules' },
-  { to: '/settings/knowledge', label: 'Knowledge base', icon: Library, tour: 'nav-knowledge' },
-  { to: '/settings/sources', label: 'Sources & schedule', icon: Radio, tour: 'nav-sources' },
-  { to: '/settings/connections', label: 'Connections', icon: Plug, tour: 'nav-connections' },
+  { to: '/rules', label: 'Rules', icon: ScrollText },
+  { to: '/settings/knowledge', label: 'Knowledge base', icon: Library },
+  { to: '/settings/sources', label: 'Sources & schedule', icon: Radio },
+  { to: '/settings/connections', label: 'Connections', icon: Plug },
 ] as const
 
 const GROUPS = [
@@ -115,7 +115,7 @@ export function AppSidebar() {
                     isActive={pathname === '/onboarding'}
                     tooltip="Get started"
                   >
-                    <Link to="/onboarding" data-tour="nav-onboarding">
+                    <Link to="/onboarding">
                       <Rocket />
                       <span>Get started</span>
                     </Link>
@@ -134,14 +134,14 @@ export function AppSidebar() {
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {group.items.map(({ to, label, icon: Icon, tour }) => (
+                {group.items.map(({ to, label, icon: Icon }) => (
                   <SidebarMenuItem key={to}>
                     <SidebarMenuButton
                       asChild
                       isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
                       tooltip={label}
                     >
-                      <Link to={to} data-tour={tour}>
+                      <Link to={to}>
                         <Icon />
                         <span>{label}</span>
                       </Link>

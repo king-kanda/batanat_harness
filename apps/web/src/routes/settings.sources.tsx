@@ -46,7 +46,7 @@ function Sources() {
         </TabsList>
 
         <TabsContent value="sources">
-          <Card className="gap-0 pb-0">
+          <Card className="gap-0 pb-0" data-tour="sources-panel">
             <CardHeader className="flex-wrap gap-2">
               <div className="min-w-0">
                 <CardTitle>Tender sources</CardTitle>

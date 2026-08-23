@@ -33,7 +33,7 @@ const CATEGORY_TONE = {
 function Opportunities() {
   return (
     <Tabs defaultValue="emails" className="space-y-4">
-      <TabsList>
+      <TabsList data-tour="opportunities-panel">
         <TabsTrigger value="emails">From email</TabsTrigger>
         <TabsTrigger value="tenders">From tenders</TabsTrigger>
       </TabsList>
@@ -71,7 +71,7 @@ function Vote({
         title="Right"
         onClick={() => onVote('up')}
         className={cn(
-          'rounded p-1 transition-colors',
+          'rounded-md p-1 transition-colors',
           current === 'up' ? 'text-status-ok' : 'text-muted-foreground hover:text-foreground',
         )}
       >
@@ -83,7 +83,7 @@ function Vote({
         title="Wrong"
         onClick={() => onVote('down')}
         className={cn(
-          'rounded p-1 transition-colors',
+          'rounded-md p-1 transition-colors',
           current === 'down' ? 'text-status-down' : 'text-muted-foreground hover:text-foreground',
         )}
       >

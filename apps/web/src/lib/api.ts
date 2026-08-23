@@ -50,7 +50,18 @@ function newRunId(): string {
   return crypto.randomUUID().replaceAll('-', '')
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Statuses to treat as a normal response rather than an error.
+ *
+ * Only `/api/health` needs this: it answers 503 *with a full report* when a
+ * dependency is down, and that report is the thing we want to render. Every
+ * other endpoint uses 503 to refuse — "Zoho is not configured", "no model API
+ * key is set" — and those carry a `detail` the user needs to see, so they must
+ * travel the error path.
+ */
+type Options = RequestInit & { tolerate?: readonly number[] }
+
+async function request<T>(path: string, init?: Options): Promise<T> {
   const runId = newRunId()
   let response: Response
 
@@ -72,7 +83,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(`Cannot reach the API at ${API_BASE_URL}`, undefined, runId)
   }
 
-  if (!response.ok && response.status !== 503) {
+  if (!response.ok && !init?.tolerate?.includes(response.status)) {
     // The API returns a readable `detail` on refusals — surface it verbatim,
     // since these are usually actionable ("Zoho is not configured").
     let detail = `${init?.method ?? 'GET'} ${path} failed`
@@ -108,7 +119,7 @@ export const api = {
     logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   },
 
-  health: () => request<HealthResponse>('/api/health'),
+  health: () => request<HealthResponse>('/api/health', { tolerate: [503] }),
   dashboard: () => request<DashboardView>('/api/dashboard'),
   policy: () => request<Record<string, { trust: string; tools: string[] }>>('/api/policy'),
 

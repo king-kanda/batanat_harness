@@ -38,7 +38,7 @@ function MemoryScreen() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…"
-          className="bg-muted border-border text-foreground w-40 rounded border px-2 py-1 text-xs outline-none"
+          className="bg-muted border-border text-foreground w-40 rounded-lg border px-2 py-1 text-xs outline-none"
         />
       </CardHeader>
 

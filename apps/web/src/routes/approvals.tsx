@@ -40,7 +40,7 @@ function Approvals() {
       </TabsList>
 
       <TabsContent value="pending">
-      <Card>
+      <Card data-tour="approvals-panel">
         <CardHeader>
           <div>
             <CardTitle>Pending approvals</CardTitle>
@@ -186,7 +186,7 @@ function ApprovalRow({
           onChange={(e) => setPayload(e.target.value)}
           rows={8}
           spellCheck={false}
-          className="bg-muted border-border text-foreground mt-3 w-full rounded border p-2 font-mono text-[11px]"
+          className="bg-muted border-border text-foreground mt-3 w-full rounded-lg border p-2 font-mono text-[11px]"
         />
       )}
 
