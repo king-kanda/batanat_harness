@@ -1,7 +1,7 @@
 import type { ConnectionView, Provider, ProviderStatus } from '@batanat/schema'
 import { CircleCheck, ExternalLink, TriangleAlert, Unplug } from 'lucide-react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
 
@@ -33,11 +33,11 @@ function ExpiryNote({ connection }: { connection: ConnectionView }) {
   }
 
   const hours = connection.expires_in_hours
-  if (hours == null) return <span className="text-ink-faint">No stated expiry</span>
+  if (hours == null) return <span className="text-muted-foreground/80">No stated expiry</span>
 
   const soon = hours < 24
   return (
-    <span className={cn(soon ? 'text-status-degraded' : 'text-ink-faint')}>
+    <span className={cn(soon ? 'text-status-degraded' : 'text-muted-foreground/80')}>
       {soon && <TriangleAlert className="mr-1 inline size-3" aria-hidden />}
       Token expires in {hours < 1 ? '<1' : Math.round(hours)}h
     </span>
@@ -66,35 +66,35 @@ export function ConnectionCard({
   const scopes = status?.scopes ?? []
 
   return (
-    <div className="border-border-subtle border-b p-4 last:border-b-0">
+    <div className="border-border border-b p-4 last:border-b-0">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-ink text-sm font-medium">{PROVIDER_LABEL[provider]}</span>
+            <span className="text-foreground text-sm font-medium">{PROVIDER_LABEL[provider]}</span>
             {connected ? (
-              <Badge variant="ok">
+              <StatusBadge tone="ok">
                 <CircleCheck className="size-3" aria-hidden />
                 connected
-              </Badge>
+              </StatusBadge>
             ) : connection?.needs_reconnect ? (
-              <Badge variant="down">{connection.status}</Badge>
+              <StatusBadge tone="down">{connection.status}</StatusBadge>
             ) : configured ? (
-              <Badge>not connected</Badge>
+              <StatusBadge tone="neutral">not connected</StatusBadge>
             ) : (
-              <Badge variant="degraded">not configured</Badge>
+              <StatusBadge tone="degraded">not configured</StatusBadge>
             )}
           </div>
 
-          <p className="text-ink-faint mt-1 text-xs">{PROVIDER_BLURB[provider]}</p>
+          <p className="text-muted-foreground/80 mt-1 text-xs">{PROVIDER_BLURB[provider]}</p>
 
           {connection && (
             <dl className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-              <div className="text-ink-muted font-mono">
+              <div className="text-muted-foreground font-mono">
                 {connection.display_name ?? connection.external_account}
               </div>
               {connection.region && (
-                <div className="text-ink-faint">
-                  DC <span className="text-ink-muted">{connection.region}</span>
+                <div className="text-muted-foreground/80">
+                  DC <span className="text-muted-foreground">{connection.region}</span>
                 </div>
               )}
               <ExpiryNote connection={connection} />
@@ -102,7 +102,7 @@ export function ConnectionCard({
           )}
 
           {!configured && (
-            <p className="text-ink-faint mt-2 text-[11px]">
+            <p className="text-muted-foreground/80 mt-2 text-[11px]">
               Credentials missing from <span className="font-mono">.env</span> — see{' '}
               <span className="font-mono">TODO.md</span>.
             </p>
@@ -114,10 +114,10 @@ export function ConnectionCard({
 
           {scopes.length > 0 && (
             <details className="mt-2">
-              <summary className="text-ink-faint cursor-pointer text-[11px] hover:underline">
+              <summary className="text-muted-foreground/80 cursor-pointer text-[11px] hover:underline">
                 {scopes.length} scopes requested
               </summary>
-              <ul className="text-ink-faint mt-1 space-y-0.5 font-mono text-[10px]">
+              <ul className="text-muted-foreground/80 mt-1 space-y-0.5 font-mono text-[10px]">
                 {scopes.map((scope) => (
                   <li key={scope}>{scope}</li>
                 ))}
@@ -128,13 +128,13 @@ export function ConnectionCard({
 
         <div className="flex shrink-0 items-center gap-2">
           {connection && (
-            <Button variant="danger" onClick={onDisconnect} disabled={busy}>
+            <Button variant="destructive" onClick={onDisconnect} disabled={busy}>
               <Unplug className="size-3" aria-hidden />
               Disconnect
             </Button>
           )}
           <Button
-            variant="primary"
+            variant="default"
             onClick={onConnect}
             disabled={busy || !configured}
             title={configured ? undefined : 'Set this provider’s credentials in .env first'}

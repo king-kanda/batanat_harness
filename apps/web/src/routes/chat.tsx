@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Loader2, Send } from 'lucide-react'
 import { useState } from 'react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { api } from '#/lib/api'
@@ -51,30 +51,30 @@ function Chat() {
             A trusted turn: the full toolbelt. CRM writes still queue for your approval.
           </CardDescription>
         </div>
-        <Badge variant="ok">trusted</Badge>
+        <StatusBadge tone="ok">trusted</StatusBadge>
       </CardHeader>
 
       <CardContent className="space-y-3">
         <div className="max-h-[26rem] space-y-3 overflow-y-auto">
           {turns.length === 0 && (
-            <p className="text-ink-faint text-xs">
+            <p className="text-muted-foreground/80 text-xs">
               Ask about tenders, email, or the CRM. For example: “which tenders close in the next
               two weeks?”
             </p>
           )}
           {turns.map((turn, index) => (
             <div key={index} className="text-xs">
-              <div className="text-ink-faint mb-0.5 text-[11px]">{turn.role}</div>
-              <div className="text-ink whitespace-pre-wrap">{turn.text}</div>
+              <div className="text-muted-foreground/80 mb-0.5 text-[11px]">{turn.role}</div>
+              <div className="text-foreground whitespace-pre-wrap">{turn.text}</div>
               {turn.tools && turn.tools.length > 0 && (
-                <div className="text-ink-faint mt-1 font-mono text-[10px]">
+                <div className="text-muted-foreground/80 mt-1 font-mono text-[10px]">
                   used: {turn.tools.join(' · ')}
                 </div>
               )}
             </div>
           ))}
           {send.isPending && (
-            <p className="text-ink-faint flex items-center gap-1.5 text-xs">
+            <p className="text-muted-foreground/80 flex items-center gap-1.5 text-xs">
               <Loader2 className="size-3 animate-spin" aria-hidden /> thinking…
             </p>
           )}
@@ -88,9 +88,9 @@ function Chat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
             placeholder="Ask something…"
-            className="bg-surface border-border-subtle text-ink focus:border-accent flex-1 rounded border px-3 py-2 text-xs outline-none"
+            className="bg-muted border-border text-foreground focus:border-ring flex-1 rounded border px-3 py-2 text-xs outline-none"
           />
-          <Button variant="primary" onClick={submit} disabled={send.isPending || !input.trim()}>
+          <Button variant="default" onClick={submit} disabled={send.isPending || !input.trim()}>
             <Send className="size-3" aria-hidden />
             Send
           </Button>

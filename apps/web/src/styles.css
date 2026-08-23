@@ -1,38 +1,170 @@
 @import 'tailwindcss';
 
-/* Dark-first, operational. This is a console, not a landing page:
-   tight spacing, tabular numerals, muted chrome, colour reserved for status. */
+@custom-variant dark (&:is(.dark *));
+
+/* Batanat harness UI.
+ *
+ * Light is the default and the designed state: the Palda off-white canvas, white
+ * cards on a hairline border, ink text, one lime accent. Colour is reserved for
+ * status — an operator scanning this should see green/amber/red and nothing else
+ * competing for attention.
+ *
+ * Dark is derived from ink + lime rather than shadcn's default slate, which the
+ * design system explicitly says not to ship. Same hue family as ink, so the two
+ * themes are recognisably one product.
+ */
 
 @theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
   --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 
-  --color-surface: oklch(0.17 0.008 260);
-  --color-surface-raised: oklch(0.21 0.009 260);
-  --color-border-subtle: oklch(0.29 0.01 260);
-  --color-ink: oklch(0.95 0.005 260);
-  --color-ink-muted: oklch(0.68 0.012 260);
-  --color-ink-faint: oklch(0.53 0.012 260);
+  --color-lime-accent: var(--lime);
+  --color-lime-soft: var(--lime-soft);
+  --color-lime-mist: var(--lime-mist);
+  --color-ink: var(--ink);
 
-  --color-status-ok: oklch(0.74 0.16 155);
-  --color-status-degraded: oklch(0.79 0.15 78);
-  --color-status-down: oklch(0.66 0.2 22);
-  --color-accent: oklch(0.72 0.13 245);
+  --color-status-ok: var(--status-ok);
+  --color-status-degraded: var(--status-degraded);
+  --color-status-down: var(--status-down);
+
+  --shadow-float: 0 1px 2px rgb(20 22 20 / 0.04), 0 12px 32px -12px rgb(20 22 20 / 0.14);
+  --shadow-lift: 0 2px 6px rgb(20 22 20 / 0.05), 0 28px 56px -20px rgb(20 22 20 / 0.2);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --lime: oklch(0.92 0.2 122);
+  --lime-soft: oklch(0.95 0.09 122);
+  --lime-mist: oklch(0.975 0.045 124);
+  --ink: oklch(0.21 0.008 145);
+
+  --background: oklch(0.982 0.004 106);
+  --foreground: oklch(0.21 0.008 145);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.008 145);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.008 145);
+
+  --primary: oklch(0.92 0.2 122);
+  --primary-foreground: oklch(0.21 0.008 145);
+  --secondary: oklch(0.96 0.005 106);
+  --secondary-foreground: oklch(0.21 0.008 145);
+  --muted: oklch(0.955 0.005 106);
+  --muted-foreground: oklch(0.53 0.012 145);
+  --accent: oklch(0.975 0.045 124);
+  --accent-foreground: oklch(0.21 0.008 145);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+
+  --border: oklch(0.918 0.006 106);
+  --input: oklch(0.918 0.006 106);
+  --ring: oklch(0.92 0.2 122);
+
+  /* Status. Lime is the brand accent, so "ok" uses a distinct green — otherwise
+     every healthy row competes with the CTA for the same colour. */
+  --status-ok: oklch(0.6 0.15 155);
+  --status-degraded: oklch(0.68 0.15 75);
+  --status-down: oklch(0.58 0.2 27);
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.21 0.008 145);
+  --sidebar-primary: oklch(0.21 0.008 145);
+  --sidebar-primary-foreground: oklch(0.982 0.004 106);
+  --sidebar-accent: oklch(0.975 0.045 124);
+  --sidebar-accent-foreground: oklch(0.21 0.008 145);
+  --sidebar-border: oklch(0.918 0.006 106);
+  --sidebar-ring: oklch(0.92 0.2 122);
+}
+
+.dark {
+  /* Re-derived from ink + lime, per the design system. Same hue family as the
+     light theme so it reads as one product, not two. */
+  --background: oklch(0.17 0.008 145);
+  --foreground: oklch(0.95 0.004 106);
+  --card: oklch(0.215 0.009 145);
+  --card-foreground: oklch(0.95 0.004 106);
+  --popover: oklch(0.215 0.009 145);
+  --popover-foreground: oklch(0.95 0.004 106);
+
+  --primary: oklch(0.92 0.2 122);
+  --primary-foreground: oklch(0.18 0.008 145);
+  --secondary: oklch(0.26 0.009 145);
+  --secondary-foreground: oklch(0.95 0.004 106);
+  --muted: oklch(0.26 0.009 145);
+  --muted-foreground: oklch(0.7 0.012 145);
+  --accent: oklch(0.28 0.03 140);
+  --accent-foreground: oklch(0.95 0.004 106);
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.98 0.003 247);
+
+  --border: oklch(0.3 0.008 145);
+  --input: oklch(0.32 0.008 145);
+  --ring: oklch(0.92 0.2 122);
+
+  --status-ok: oklch(0.75 0.16 155);
+  --status-degraded: oklch(0.79 0.15 78);
+  --status-down: oklch(0.68 0.19 25);
+
+  --sidebar: oklch(0.195 0.008 145);
+  --sidebar-foreground: oklch(0.95 0.004 106);
+  --sidebar-primary: oklch(0.92 0.2 122);
+  --sidebar-primary-foreground: oklch(0.18 0.008 145);
+  --sidebar-accent: oklch(0.27 0.02 142);
+  --sidebar-accent-foreground: oklch(0.95 0.004 106);
+  --sidebar-border: oklch(0.3 0.008 145);
+  --sidebar-ring: oklch(0.92 0.2 122);
 }
 
 @layer base {
-  html {
-    color-scheme: dark;
+  * {
+    border-color: var(--color-border);
   }
 
   body {
-    margin: 0;
-    background-color: var(--color-surface);
-    color: var(--color-ink);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-  }
-
-  * {
-    box-sizing: border-box;
+    margin: 0;
   }
 
   html,
@@ -41,8 +173,35 @@
     min-height: 100%;
   }
 
+  ::selection {
+    background: var(--lime);
+    color: var(--ink);
+  }
+
   /* Numbers in tables and metrics should not jitter as they update. */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* The off-white dotted canvas, faint enough to read as texture under dense UI.
+   Applied once at the app root; cards sit on solid surfaces above it. */
+@utility dotted-grid {
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+:root {
+  --dot-color: oklch(0.21 0.008 145 / 0.07);
+}
+
+.dark {
+  --dot-color: oklch(0.95 0.004 106 / 0.05);
+}
+
+@utility text-italic-serif {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }

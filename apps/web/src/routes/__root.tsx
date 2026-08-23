@@ -1,23 +1,29 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { Activity } from 'lucide-react'
+import { ThemeProvider } from 'next-themes'
 import type * as React from 'react'
 
+import { AppSidebar } from '#/components/app-sidebar'
+import { ModeToggle } from '#/components/mode-toggle'
+import { Separator } from '#/components/ui/separator'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/sidebar'
+import { Toaster } from '#/components/ui/sonner'
 import { getQueryClient } from '#/lib/query-client'
 import appCss from '../styles.css?url'
 
-const NAV = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/approvals', label: 'Approvals' },
-  { to: '/results', label: 'Results' },
-  { to: '/activity', label: 'Activity' },
-  { to: '/rules', label: 'Rules' },
-  { to: '/memory', label: 'Memory' },
-  { to: '/chat', label: 'Chat' },
-  { to: '/settings/connections', label: 'Connections' },
-] as const
+/** Page titles, keyed by route. Keeps the header honest without prop-drilling. */
+const TITLES: Record<string, string> = {
+  '/': 'Dashboard',
+  '/approvals': 'Approvals',
+  '/results': 'Results',
+  '/activity': 'Activity',
+  '/rules': 'Rules',
+  '/memory': 'Memory',
+  '/chat': 'Chat',
+  '/settings/connections': 'Connections',
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -26,7 +32,15 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Batanat Harness' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: '' },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
+      },
+    ],
   }),
   shellComponent: RootDocument,
 })
@@ -35,46 +49,62 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient()
 
   return (
-    <html lang="en">
+    // suppressHydrationWarning: next-themes sets the class on <html> before
+    // React hydrates, which is exactly what stops the flash of the wrong theme.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <QueryClientProvider client={queryClient}>
-          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8">
-            <header className="mb-8 flex items-center gap-4">
-              <div className="flex items-center gap-2.5">
-                <Activity className="text-accent size-5" aria-hidden />
-                <span className="text-ink text-sm font-semibold tracking-tight">
-                  Batanat Harness
-                </span>
-              </div>
-              <nav className="flex items-center gap-1 text-xs">
-                {NAV.map(({ to, label }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className="text-ink-faint hover:text-ink rounded px-2 py-1 transition-colors"
-                    activeProps={{ className: 'text-ink bg-surface-raised' }}
-                    activeOptions={{ exact: to === '/' }}
-                  >
-                    {label}
-                  </Link>
-                ))}
-              </nav>
-            </header>
-            <main className="flex-1">{children}</main>
-          </div>
-        </QueryClientProvider>
-        {/* Dev only: the panel overlays the page and intercepts clicks. */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryClientProvider client={queryClient}>
+            {/* One dotted canvas for the whole app; cards sit on solid surfaces above it. */}
+            <div
+              aria-hidden
+              className="dotted-grid bg-background pointer-events-none fixed inset-0 -z-10"
+            />
+            <AppShell>{children}</AppShell>
+            <Toaster position="bottom-right" />
+          </QueryClientProvider>
+        </ThemeProvider>
+
         {import.meta.env.DEV && (
           <TanStackDevtools
-            config={{ position: 'bottom-right' }}
+            config={{ position: 'bottom-left' }}
             plugins={[{ name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> }]}
           />
         )}
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const title = TITLES[pathname] ?? (pathname.startsWith('/reports/') ? 'Report' : 'Batanat')
+
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="bg-transparent">
+        <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur-xl">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-1 !h-4" />
+          <h1 className="text-sm font-semibold tracking-tight">{title}</h1>
+          <div className="ml-auto">
+            <ModeToggle />
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Check, Loader2, Pencil, X } from 'lucide-react'
 import { useState } from 'react'
 
-import { Badge } from '#/components/ui/badge'
+import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
@@ -36,11 +36,11 @@ function Approvals() {
               involved once you decide.
             </CardDescription>
           </div>
-          {pending.length > 0 && <Badge variant="degraded">{pending.length} waiting</Badge>}
+          {pending.length > 0 && <StatusBadge tone="degraded">{pending.length} waiting</StatusBadge>}
         </CardHeader>
 
         {approvals.isPending && (
-          <CardContent className="text-ink-faint text-xs">Loading…</CardContent>
+          <CardContent className="text-muted-foreground/80 text-xs">Loading…</CardContent>
         )}
         {approvals.data && pending.length === 0 && (
           <Empty title="Nothing waiting">
@@ -64,11 +64,11 @@ function Approvals() {
             {decided.map((approval) => (
               <div
                 key={approval.id}
-                className="border-border-subtle flex items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
+                className="border-border flex items-baseline gap-2 border-b px-4 py-2 text-xs last:border-b-0"
               >
-                <span className="text-ink w-20 shrink-0 font-mono">{approval.module}</span>
-                <Badge
-                  variant={
+                <span className="text-foreground w-20 shrink-0 font-mono">{approval.module}</span>
+                <StatusBadge
+                  tone={
                     approval.status === 'executed'
                       ? 'ok'
                       : approval.status === 'rejected' || approval.status === 'expired'
@@ -77,9 +77,9 @@ function Approvals() {
                   }
                 >
                   {approval.status}
-                </Badge>
-                <span className="text-ink-faint truncate">{approval.rationale}</span>
-                <span className="text-ink-faint tabular ml-auto shrink-0">
+                </StatusBadge>
+                <span className="text-muted-foreground/80 truncate">{approval.rationale}</span>
+                <span className="text-muted-foreground/80 tabular ml-auto shrink-0">
                   {new Date(approval.created_at).toLocaleDateString()}
                 </span>
               </div>
@@ -123,25 +123,25 @@ function ApprovalRow({
   const urgent = approval.hours_remaining < 6
 
   return (
-    <div className="border-border-subtle border-b p-4 last:border-b-0">
+    <div className="border-border border-b p-4 last:border-b-0">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-ink text-sm font-medium">
+        <span className="text-foreground text-sm font-medium">
           {approval.operation} {approval.module}
         </span>
-        <Badge variant={urgent ? 'down' : 'neutral'}>
+        <StatusBadge tone={urgent ? 'down' : 'neutral'}>
           {approval.hours_remaining > 0
             ? `${Math.round(approval.hours_remaining)}h left`
             : 'expiring'}
-        </Badge>
+        </StatusBadge>
       </div>
 
       {approval.rationale && (
-        <p className="text-ink-muted mt-1 text-xs">{approval.rationale}</p>
+        <p className="text-muted-foreground mt-1 text-xs">{approval.rationale}</p>
       )}
 
       <table className="mt-3 w-full text-xs">
         <thead>
-          <tr className="text-ink-faint text-left text-[11px]">
+          <tr className="text-muted-foreground/80 text-left text-[11px]">
             <th className="w-40 pb-1 font-normal">Field</th>
             <th className="w-1/3 pb-1 font-normal">Current</th>
             <th className="pb-1 font-normal">Proposed</th>
@@ -149,9 +149,9 @@ function ApprovalRow({
         </thead>
         <tbody>
           {approval.diff.map((entry) => (
-            <tr key={entry.field} className="border-border-subtle border-t align-top">
-              <td className="text-ink-muted py-1.5 font-mono">{entry.field}</td>
-              <td className="text-ink-faint py-1.5">
+            <tr key={entry.field} className="border-border border-t align-top">
+              <td className="text-muted-foreground py-1.5 font-mono">{entry.field}</td>
+              <td className="text-muted-foreground/80 py-1.5">
                 {entry.current == null ? <span className="italic">empty</span> : String(entry.current)}
               </td>
               <td className="text-status-ok py-1.5">{String(entry.proposed ?? '')}</td>
@@ -166,13 +166,13 @@ function ApprovalRow({
           onChange={(e) => setPayload(e.target.value)}
           rows={8}
           spellCheck={false}
-          className="bg-surface border-border-subtle text-ink mt-3 w-full rounded border p-2 font-mono text-[11px]"
+          className="bg-muted border-border text-foreground mt-3 w-full rounded border p-2 font-mono text-[11px]"
         />
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
-          variant="primary"
+          variant="default"
           disabled={busy}
           onClick={() => {
             if (!editing) return approve.mutate(undefined)
@@ -190,7 +190,7 @@ function ApprovalRow({
           <Pencil className="size-3" aria-hidden />
           {editing ? 'Cancel edit' : 'Edit'}
         </Button>
-        <Button variant="danger" onClick={() => reject.mutate()} disabled={busy}>
+        <Button variant="destructive" onClick={() => reject.mutate()} disabled={busy}>
           <X className="size-3" aria-hidden />
           Reject
         </Button>

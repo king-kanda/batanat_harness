@@ -1,9 +1,9 @@
+import { StatusBadge } from '#/components/status-badge'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 
-import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
 import { api } from '#/lib/api'
@@ -33,7 +33,7 @@ function Results() {
             onClick={() => setTab(value)}
             className={cn(
               'rounded px-3 py-1.5 capitalize transition-colors',
-              tab === value ? 'bg-surface-raised text-ink' : 'text-ink-faint hover:text-ink',
+              tab === value ? 'bg-card text-foreground' : 'text-muted-foreground/80 hover:text-foreground',
             )}
           >
             {value}
@@ -69,7 +69,7 @@ function Vote({
         onClick={() => onVote('up')}
         className={cn(
           'rounded p-1 transition-colors',
-          current === 'up' ? 'text-status-ok' : 'text-ink-faint hover:text-ink',
+          current === 'up' ? 'text-status-ok' : 'text-muted-foreground/80 hover:text-foreground',
         )}
       >
         <ThumbsUp className="size-3.5" aria-hidden />
@@ -80,7 +80,7 @@ function Vote({
         onClick={() => onVote('down')}
         className={cn(
           'rounded p-1 transition-colors',
-          current === 'down' ? 'text-status-down' : 'text-ink-faint hover:text-ink',
+          current === 'down' ? 'text-status-down' : 'text-muted-foreground/80 hover:text-foreground',
         )}
       >
         <ThumbsDown className="size-3.5" aria-hidden />
@@ -105,7 +105,7 @@ function Emails() {
         </div>
       </CardHeader>
 
-      {emails.isPending && <CardContent className="text-ink-faint text-xs">Loading…</CardContent>}
+      {emails.isPending && <CardContent className="text-muted-foreground/80 text-xs">Loading…</CardContent>}
       {emails.data?.length === 0 && (
         <Empty title="No email classified yet">
           Connect Gmail on the Connections page. New mail is classified within a minute of
@@ -115,36 +115,36 @@ function Emails() {
 
       <div>
         {emails.data?.map((email) => (
-          <div key={email.id} className="border-border-subtle border-b p-4 last:border-b-0">
+          <div key={email.id} className="border-border border-b p-4 last:border-b-0">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-2">
                   {email.category && (
-                    <Badge variant={CATEGORY_TONE[email.category] ?? 'neutral'}>
+                    <StatusBadge tone={CATEGORY_TONE[email.category] ?? 'neutral'}>
                       {email.category}
-                    </Badge>
+                    </StatusBadge>
                   )}
                   {email.priority && (
-                    <Badge variant={email.priority === 'high' ? 'down' : 'neutral'}>
+                    <StatusBadge tone={email.priority === 'high' ? 'down' : 'neutral'}>
                       {email.priority}
-                    </Badge>
+                    </StatusBadge>
                   )}
                   {email.confidence != null && (
-                    <span className="text-ink-faint tabular text-[11px]">
+                    <span className="text-muted-foreground/80 tabular text-[11px]">
                       {(email.confidence * 100).toFixed(0)}% confident
                     </span>
                   )}
                 </div>
-                <p className="text-ink mt-1.5 text-sm">{email.subject ?? '(no subject)'}</p>
-                <p className="text-ink-faint text-[11px]">
+                <p className="text-foreground mt-1.5 text-sm">{email.subject ?? '(no subject)'}</p>
+                <p className="text-muted-foreground/80 text-[11px]">
                   {email.from_name ?? email.from_address}
                   {email.received_at && ` · ${new Date(email.received_at).toLocaleString()}`}
                 </p>
                 {email.reasoning && (
-                  <p className="text-ink-muted mt-2 text-xs italic">{email.reasoning}</p>
+                  <p className="text-muted-foreground mt-2 text-xs italic">{email.reasoning}</p>
                 )}
                 {email.suggested_action && (
-                  <p className="text-accent mt-1 text-xs">→ {email.suggested_action}</p>
+                  <p className="text-primary mt-1 text-xs">→ {email.suggested_action}</p>
                 )}
               </div>
               <Vote
@@ -174,7 +174,7 @@ function Tenders() {
           <CardTitle>Tenders</CardTitle>
           <CardDescription>Soonest deadline first. Every row links to its source.</CardDescription>
         </div>
-        <label className="text-ink-faint flex items-center gap-1.5 text-[11px]">
+        <label className="text-muted-foreground/80 flex items-center gap-1.5 text-[11px]">
           <input
             type="checkbox"
             checked={includeClosed}
@@ -184,7 +184,7 @@ function Tenders() {
         </label>
       </CardHeader>
 
-      {tenders.isPending && <CardContent className="text-ink-faint text-xs">Loading…</CardContent>}
+      {tenders.isPending && <CardContent className="text-muted-foreground/80 text-xs">Loading…</CardContent>}
       {tenders.data?.length === 0 && (
         <Empty title="No tenders yet">
           The tender sweep runs at 11:00 and 17:00 EAT. Press “Run now” on the dashboard to do it
@@ -203,30 +203,30 @@ function Tenders() {
           return (
             <div
               key={tender.id}
-              className="border-border-subtle flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0"
+              className="border-border flex items-start gap-3 border-b px-4 py-2.5 last:border-b-0"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-ink-muted font-mono text-[11px]">
+                  <span className="text-muted-foreground font-mono text-[11px]">
                     {tender.reference_no ?? '—'}
                   </span>
-                  <span className="text-ink-faint text-[11px]">{tender.source}</span>
+                  <span className="text-muted-foreground/80 text-[11px]">{tender.source}</span>
                   {tender.is_closed ? (
-                    <Badge variant="neutral">closed</Badge>
+                    <StatusBadge tone="neutral">closed</StatusBadge>
                   ) : days != null && days <= 14 ? (
-                    <Badge variant={days <= 5 ? 'down' : 'degraded'}>{days}d left</Badge>
+                    <StatusBadge tone={days <= 5 ? 'down' : 'degraded'}>{days}d left</StatusBadge>
                   ) : null}
                 </div>
                 <a
                   href={tender.source_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-ink hover:text-accent mt-0.5 inline-flex items-start gap-1 text-sm"
+                  className="text-foreground hover:text-primary mt-0.5 inline-flex items-start gap-1 text-sm"
                 >
                   {tender.title}
                   <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden />
                 </a>
-                <p className="text-ink-faint text-[11px]">
+                <p className="text-muted-foreground/80 text-[11px]">
                   {tender.entity}
                   {tender.closing_date &&
                     ` · closes ${new Date(tender.closing_date).toLocaleDateString()}`}
