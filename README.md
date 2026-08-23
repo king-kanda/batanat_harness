@@ -218,13 +218,14 @@ the Docker build so it regresses loudly rather than silently months from now.
 
 | Route | What it is for |
 |---|---|
-| `/` | Today's opportunities and tenders, pending approvals, source health, next run |
+| `/` | **Chat** — the front door. Opens with a summary of what is waiting, which retracts once you start typing. Each card links to where that thing lives |
 | `/approvals` | The queue. Field-level diff, approve / reject / edit-then-approve |
 | `/results` | Classified email and tenders, with 👍/👎 that feed `make eval` |
-| `/activity` | Run timeline. Expand a run for every tool call, its cost and the Skill.MD version |
+| `/audit` | Audit logs. Every run, expandable to each tool call, its cost and the Skill.MD version |
 | `/rules` | Skill.MD editor with live validation, version history and rollback |
+| `/settings/knowledge` | Knowledge base — upload PDFs and text into semantic memory |
 | `/memory` | View, search and delete memories; trust tag shown on every row |
-| `/chat` | A trusted turn with the full toolbelt. Writes still queue for approval |
+| `/settings/sources` | Tender source health and the schedule |
 | `/settings/connections` | Gmail, Zoho, WhatsApp pairing, token expiry warnings |
 | `/reports/tenders/:label` | The permalink every report email and alert links to |
 

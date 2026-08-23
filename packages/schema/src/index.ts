@@ -19,6 +19,7 @@ export type {
   DashboardView,
   DiffLine,
   DisconnectResult,
+  DocumentView,
   EmailCategory,
   EmailView,
   ErrorResponse,

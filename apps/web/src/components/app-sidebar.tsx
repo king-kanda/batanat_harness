@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
-  Activity,
   Brain,
   CheckSquare,
-  LayoutDashboard,
+  Library,
   ListChecks,
   MessageSquare,
   Plug,
+  Radio,
   ScrollText,
+  ScrollText as AuditIcon,
 } from 'lucide-react'
 
 import { StatusDot, toneFor } from '#/components/status-badge'
@@ -28,17 +29,18 @@ import {
 } from '#/components/ui/sidebar'
 import { api } from '#/lib/api'
 
-const OPERATE = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+const WORKSPACE = [
+  { to: '/', label: 'Chat', icon: MessageSquare },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
   { to: '/results', label: 'Results', icon: ListChecks },
-  { to: '/activity', label: 'Activity', icon: Activity },
+  { to: '/audit', label: 'Audit logs', icon: AuditIcon },
 ] as const
 
-const CONFIGURE = [
+const SETTINGS = [
   { to: '/rules', label: 'Rules', icon: ScrollText },
+  { to: '/settings/knowledge', label: 'Knowledge base', icon: Library },
   { to: '/memory', label: 'Memory', icon: Brain },
-  { to: '/chat', label: 'Chat', icon: MessageSquare },
+  { to: '/settings/sources', label: 'Sources & schedule', icon: Radio },
   { to: '/settings/connections', label: 'Connections', icon: Plug },
 ] as const
 
@@ -74,10 +76,10 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Operate</SidebarGroupLabel>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {OPERATE.map(({ to, label, icon: Icon }) => (
+              {WORKSPACE.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
                     asChild
@@ -99,10 +101,10 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Configure</SidebarGroupLabel>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {CONFIGURE.map(({ to, label, icon: Icon }) => (
+              {SETTINGS.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
                     asChild

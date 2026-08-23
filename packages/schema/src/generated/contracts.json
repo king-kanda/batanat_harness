@@ -536,6 +536,48 @@
       "title": "DisconnectResult",
       "type": "object"
     },
+    "DocumentView": {
+      "description": "An uploaded knowledge-base document.",
+      "properties": {
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "filename": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "trust_tag": {
+          "description": "user_asserted may inform the agent directly; untrusted_external is only ever quoted as data.",
+          "title": "Trust Tag",
+          "type": "string"
+        },
+        "chunk_count": {
+          "title": "Chunk Count",
+          "type": "integer"
+        },
+        "characters": {
+          "title": "Characters",
+          "type": "integer"
+        },
+        "uploaded_at": {
+          "format": "date-time",
+          "title": "Uploaded At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "filename",
+        "trust_tag",
+        "chunk_count",
+        "characters",
+        "uploaded_at"
+      ],
+      "title": "DocumentView",
+      "type": "object"
+    },
     "EmailCategory": {
       "enum": [
         "opportunity",

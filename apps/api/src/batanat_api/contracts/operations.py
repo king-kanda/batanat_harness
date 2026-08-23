@@ -172,6 +172,20 @@ class MemoryView(BaseModel):
     )
 
 
+class DocumentView(BaseModel):
+    """An uploaded knowledge-base document."""
+
+    document_id: uuid.UUID
+    filename: str
+    trust_tag: str = Field(
+        description="user_asserted may inform the agent directly; untrusted_external is "
+        "only ever quoted as data."
+    )
+    chunk_count: int
+    characters: int
+    uploaded_at: datetime
+
+
 class ReportView(BaseModel):
     """A tender report permalink page."""
 
