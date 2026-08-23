@@ -75,6 +75,16 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
         ),
         # A human, on a handset proven by the pairing flow. Trusted enough to
         # approve something already queued; never to originate a write.
+        #
+        # Read this before wiring the trigger: `approve_pending` executes the
+        # CRM write immediately, so once inbound WhatsApp reaches the runner,
+        # the strength of the approval gate is exactly the strength of phone
+        # number pairing — and `payload_is_untrusted=False` puts the message
+        # body in the instruction position. Constrain the body through
+        # `approvals.service.parse_decision_reply` rather than handing it to the
+        # model as free text; that parser exists for this reason and accepts
+        # nothing but APPROVE/REJECT plus an index. The webhook currently
+        # acknowledges and stops, so none of this is live yet.
         TriggerType.whatsapp_inbound: Capability(
             trust=TrustLevel.trusted,
             tools=(

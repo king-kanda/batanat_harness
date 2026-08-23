@@ -5,9 +5,15 @@ scrypt is a memory-hard KDF, it is in Python itself, and it avoids adding a
 dependency with native build steps for the one thing it would do here.
 
 Parameters follow the interactive-login end of the usual recommendations:
-n=2^15, r=8, p=1 — roughly 32MB and ~100ms per hash on this hardware. That is
-slow enough to make offline cracking expensive and fast enough that nobody
-notices logging in.
+n=2^15, r=8, p=1 — 32MB and, measured on this hardware, about 0.6s per hash.
+That is slow enough to make offline cracking expensive and acceptable on the
+login path, where it happens once.
+
+It is *not* acceptable anywhere else. Do not call `verify_password` to answer a
+question on a hot path: `/api/auth/me` once used it to work out whether an
+account still had the seeded password, which put 0.6s and 32MB on the endpoint
+the UI hits on every page load. That is a stored flag now. If you find yourself
+hashing to derive a fact, store the fact.
 
 The stored form carries its own parameters, so raising the cost later does not
 invalidate existing hashes — `needs_rehash` tells the caller when to upgrade one
@@ -103,3 +109,14 @@ def needs_rehash(stored: str | None) -> bool:
     except ValueError:
         return True
     return prefix != PREFIX or (int(n), int(r), int(p)) != (SCRYPT_N, SCRYPT_R, SCRYPT_P)
+
+
+def set_password(user, password: str) -> None:
+    """Give a user a real password and clear the must-change flag.
+
+    Both halves belong together: a stored flag that says "still on the seeded
+    default" is only trustworthy if nothing can set a password without clearing
+    it. Use this rather than assigning `password_hash` directly.
+    """
+    user.password_hash = hash_password(password)
+    user.must_change_password = False

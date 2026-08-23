@@ -239,7 +239,7 @@ a JWT cannot be revoked without server state anyway, and once you are keeping se
 the token may as well carry nothing worth forging. Signing out actually ends the session.
 
 Passwords are hashed with `hashlib.scrypt` from the standard library (n=2^15, r=8, p=1,
-~450ms per hash). No bcrypt or argon2 dependency, and the stored form carries its own
+~0.6s per hash on this hardware). No bcrypt or argon2 dependency, and the stored form carries its own
 parameters so the cost can be raised later without invalidating existing hashes.
 
 ```
@@ -253,6 +253,20 @@ default password that ships is not a default, it is a backdoor.
 
 Every API endpoint requires the session; the client-side route guard is only there to save
 the user from a screen of failed requests.
+
+**Deployment constraint.** The cookie is `SameSite=Lax`, so the API and the web app must
+share a registrable domain — `api.example.com` and `app.example.com` are fine, two
+different domains are not. Split them across domains and the browser stops sending the
+cookie entirely: every request arrives unauthenticated, with nothing in the logs to say
+why. The alternative, `SameSite=None; Secure`, re-opens CSRF and would mean adding token
+protection to every mutating endpoint. Sharing a domain is far cheaper.
+
+**`/api/auth/me` does no hashing.** It is called on every page load, and working out
+whether an account still has the seeded password by hashing that password against the
+stored hash put 0.6s and 32MB on the hottest endpoint in the app — a handful of browser
+tabs regaining focus together was enough to stall the API. It is a stored column now
+(`users.must_change_password`), set at seed time and cleared when a real password is set.
+The general rule: a KDF verifies a secret someone submitted, it never derives a fact.
 
 ## Model providers
 

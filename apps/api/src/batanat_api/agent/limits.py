@@ -24,10 +24,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from redis.asyncio import from_url
-
 from batanat_api.config import get_settings
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 
 log = get_logger(__name__)
 
@@ -133,18 +132,13 @@ class CircuitBreaker:
     def _open_key(tool: str) -> str:
         return f"breaker:open:{tool}"
 
-    async def _client(self):
-        return from_url(get_settings().redis_url)
-
     async def is_open(self, tool: str) -> bool:
-        client = await self._client()
+        client = get_redis()
         try:
             return await client.exists(self._open_key(tool)) == 1
         except Exception:  # noqa: BLE001 — Redis down must not disable every tool
             log.warning("breaker.unavailable", tool=tool)
             return False
-        finally:
-            await client.aclose()
 
     async def check(self, tool: str) -> None:
         if await self.is_open(tool):
@@ -156,17 +150,14 @@ class CircuitBreaker:
 
     async def record_success(self, tool: str) -> None:
         """One success clears the count — we care about *consecutive* failures."""
-        client = await self._client()
         try:
-            await client.delete(self._failure_key(tool))
+            await get_redis().delete(self._failure_key(tool))
         except Exception:  # noqa: BLE001
             pass
-        finally:
-            await client.aclose()
 
     async def record_failure(self, tool: str) -> bool:
         """Count a failure; open the circuit at the threshold. Returns True if opened."""
-        client = await self._client()
+        client = get_redis()
         try:
             failures = await client.incr(self._failure_key(tool))
             # Keep the counter alive only as long as the cooldown window.
@@ -184,12 +175,6 @@ class CircuitBreaker:
             return False
         except Exception:  # noqa: BLE001
             return False
-        finally:
-            await client.aclose()
 
     async def reset(self, tool: str) -> None:
-        client = await self._client()
-        try:
-            await client.delete(self._failure_key(tool), self._open_key(tool))
-        finally:
-            await client.aclose()
+        await get_redis().delete(self._failure_key(tool), self._open_key(tool))

@@ -25,6 +25,7 @@ from fastapi import APIRouter, Header, Request, Response
 from batanat_api.config import get_settings
 from batanat_api.core.deps import SessionDep
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 
 log = get_logger(__name__)
 
@@ -96,9 +97,7 @@ async def should_process(email_address: str) -> bool:
     rest. The run that does happen syncs from the stored cursor, so it picks up
     every message the suppressed notifications referred to.
     """
-    from redis.asyncio import from_url
-
-    client = from_url(get_settings().redis_url)
+    client = get_redis()
     try:
         # SET NX is the whole debounce: first caller wins the window.
         acquired = await client.set(
@@ -108,8 +107,6 @@ async def should_process(email_address: str) -> bool:
     except Exception:  # noqa: BLE001 — Redis down must not stop ingestion
         log.warning("gmail.debounce.unavailable")
         return True
-    finally:
-        await client.aclose()
 
 
 @router.post("", include_in_schema=False, summary="Gmail push notification")

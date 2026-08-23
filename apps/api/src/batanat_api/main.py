@@ -100,6 +100,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from batanat_api.scheduler.jobs import stop_scheduler
 
         stop_scheduler()
+
+    from batanat_api.core.redis import close_redis
+
+    await close_redis()
     log.info("api.shutdown", version=__version__)
 
 

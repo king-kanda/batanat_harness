@@ -403,3 +403,56 @@ async def test_a_system_trigger_runs_without_calling_a_model(session, user, brea
     )
     assert result.status is enums.RunStatus.succeeded
     assert model.calls == []
+
+
+async def test_a_tool_that_fails_against_the_database_is_still_audited(
+    session, user, breaker, monkeypatch
+) -> None:
+    """The audit row must survive the failure it is recording.
+
+    A tool that raises a *database* error leaves the transaction aborted, so
+    without a savepoint around the handler the `ToolCall` insert that records
+    the failure fails too — and the run row never gets its terminal status
+    either. The one case you most want the trail is the one that loses it.
+
+    Note this test cannot fail for the right reason under the session fixture's
+    `create_savepoint` mode, which recovers on its own; it is a guard against
+    the savepoint being removed from the runner, and the production behaviour
+    was verified separately against a plain session.
+    """
+    import dataclasses
+
+    from sqlalchemy import text
+
+    from batanat_api.agent.tools import registry
+
+    async def fails_against_the_database(context, args):
+        await context.session.execute(text("SELECT * FROM a_table_that_does_not_exist"))
+
+    spec = registry.get_tool("echo_fact")
+    monkeypatch.setitem(
+        registry._REGISTRY,
+        "echo_fact",
+        dataclasses.replace(spec, handler=fails_against_the_database),
+    )
+
+    model = ScriptedModel(
+        [
+            ModelResponse(
+                tool_calls=(ToolRequest(id="c1", name="echo_fact", arguments={"fact": "x"}),)
+            ),
+            ModelResponse(text="done"),
+        ]
+    )
+    result = await runner_for(model, breaker=breaker).run(
+        session, user_id=user.id, trigger=enums.TriggerType.web_chat
+    )
+
+    calls = (
+        (await session.execute(select(ToolCall).where(ToolCall.run_id == result.run_id)))
+        .scalars()
+        .all()
+    )
+    assert len(calls) == 1
+    assert "does not exist" in (calls[0].error or "")
+    assert result.status is enums.RunStatus.succeeded

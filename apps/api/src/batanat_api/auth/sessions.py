@@ -13,6 +13,14 @@ cannot read it, which is what limits the damage of an XSS bug. **SameSite=Lax**
 so it is not sent on cross-site requests, which is CSRF protection for
 everything except top-level navigation. **Secure** whenever we are not on
 localhost, so it never crosses the wire in clear.
+
+A deployment constraint follows from Lax, and it is the kind that is discovered
+at the worst moment: the API and the web app must share a registrable domain.
+`api.example.com` and `app.example.com` are fine. Put the API on a different
+domain and the browser will not send this cookie at all — every request arrives
+unauthenticated. The alternative is `SameSite=None; Secure`, which re-opens CSRF
+and would mean adding token protection to every mutating endpoint. Sharing a
+domain is much cheaper. See DEPLOYMENT notes in README.
 """
 
 from __future__ import annotations
@@ -22,10 +30,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from redis.asyncio import from_url
-
 from batanat_api.config import get_settings
 from batanat_api.core.logging import get_logger
+from batanat_api.core.redis import get_redis
 
 log = get_logger(__name__)
 
@@ -50,10 +57,6 @@ class Session:
     expires_at: datetime
 
 
-def _client():
-    return from_url(get_settings().redis_url)
-
-
 def _key(token: str) -> str:
     return f"{KEY_PREFIX}{token}"
 
@@ -63,11 +66,7 @@ async def create(user_id: uuid.UUID) -> Session:
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + SESSION_TTL
 
-    client = _client()
-    try:
-        await client.set(_key(token), str(user_id), ex=int(SESSION_TTL.total_seconds()))
-    finally:
-        await client.aclose()
+    await get_redis().set(_key(token), str(user_id), ex=int(SESSION_TTL.total_seconds()))
 
     log.info("session.created", user_id=str(user_id))
     return Session(token=token, user_id=user_id, expires_at=expires_at)
@@ -82,7 +81,7 @@ async def resolve(token: str | None) -> uuid.UUID | None:
     if not token:
         return None
 
-    client = _client()
+    client = get_redis()
     try:
         raw = await client.get(_key(token))
         if raw is None:
@@ -91,8 +90,6 @@ async def resolve(token: str | None) -> uuid.UUID | None:
     except Exception:  # noqa: BLE001 — Redis down must not authenticate anyone
         log.error("session.store_unavailable")
         return None
-    finally:
-        await client.aclose()
 
     try:
         return uuid.UUID(raw.decode() if isinstance(raw, bytes) else raw)
@@ -103,17 +100,13 @@ async def resolve(token: str | None) -> uuid.UUID | None:
 async def destroy(token: str | None) -> None:
     if not token:
         return
-    client = _client()
-    try:
-        await client.delete(_key(token))
-    finally:
-        await client.aclose()
+    await get_redis().delete(_key(token))
     log.info("session.destroyed")
 
 
 async def destroy_all_for_user(user_id: uuid.UUID) -> int:
     """Sign a user out everywhere. Used after a password change."""
-    client = _client()
+    client = get_redis()
     removed = 0
     try:
         async for key in client.scan_iter(match=f"{KEY_PREFIX}*"):
@@ -123,8 +116,6 @@ async def destroy_all_for_user(user_id: uuid.UUID) -> int:
                 removed += 1
     except Exception:  # noqa: BLE001
         log.warning("session.bulk_destroy_failed")
-    finally:
-        await client.aclose()
     return removed
 
 
@@ -133,7 +124,7 @@ async def destroy_all_for_user(user_id: uuid.UUID) -> int:
 
 async def too_many_attempts(email: str, address: str) -> bool:
     """Count a login attempt; True once either limit is passed."""
-    client = _client()
+    client = get_redis()
     try:
         for key, limit in (
             (f"login:email:{email.lower()}", MAX_ATTEMPTS_PER_EMAIL),
@@ -148,19 +139,14 @@ async def too_many_attempts(email: str, address: str) -> bool:
         return False
     except Exception:  # noqa: BLE001 — Redis down must not lock everyone out
         return False
-    finally:
-        await client.aclose()
 
 
 async def clear_attempts(email: str, address: str) -> None:
     """A successful login resets the counters."""
-    client = _client()
     try:
-        await client.delete(f"login:email:{email.lower()}", f"login:addr:{address}")
+        await get_redis().delete(f"login:email:{email.lower()}", f"login:addr:{address}")
     except Exception:  # noqa: BLE001
         pass
-    finally:
-        await client.aclose()
 
 
 # --- cookie ------------------------------------------------------------------

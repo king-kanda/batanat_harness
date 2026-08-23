@@ -18,7 +18,7 @@ from batanat_api.db import enums
 from batanat_api.db.models import SkillVersion, TenderSourceRow, User
 from batanat_api.db.mongo import ensure_indexes
 from batanat_api.db.session import session_scope
-from batanat_api.security.passwords import hash_password
+from batanat_api.security.passwords import hash_password, verify_password
 
 log = get_logger(__name__)
 
@@ -123,15 +123,27 @@ async def seed() -> None:
         # Give the account a password if it has none. Never overwrite one that
         # exists — re-seeding must not silently reset a changed password back to
         # the development default.
+        settings = get_settings()
         if user.password_hash is None:
-            settings = get_settings()
             user.password_hash = hash_password(settings.default_user_password)
+            # Recorded, not derived. `/api/auth/me` reads this flag; working it
+            # out by hashing the default would cost 0.6s on every page load.
+            user.must_change_password = True
             await session.flush()
             log.warning(
                 "seed.password.set",
                 email=user.email,
                 detail="Development default. Change it before this leaves your machine.",
             )
+        elif not user.must_change_password and verify_password(
+            settings.default_user_password, user.password_hash
+        ):
+            # An account seeded before the flag existed. One hash here, at seed
+            # time, so the warning banner is right without paying for it on
+            # every request.
+            user.must_change_password = True
+            await session.flush()
+            log.warning("seed.password.still_default", email=user.email)
 
         existing_keys = set((await session.execute(select(TenderSourceRow.key))).scalars().all())
         for source in TENDER_SOURCES:

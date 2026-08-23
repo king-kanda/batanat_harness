@@ -11,9 +11,19 @@
  * restyling a component cannot silently break the tour.
  */
 
+import type { FileRouteTypes } from '#/routeTree.gen'
+
+/** Every path the router knows about, straight from the generated tree. */
+export type AppRoute = FileRouteTypes['to']
+
 export type TourStep = {
-  /** Route to visit before showing this step. Omit to stay where we are. */
-  route?: string
+  /**
+   * Route to visit before showing this step. Omit to stay where we are.
+   *
+   * Typed against the generated route tree rather than left as a string: a
+   * renamed route should break the build, not send someone on a tour of a 404.
+   */
+  route?: AppRoute
   /** `data-tour` value to spotlight. Omit for an unanchored card. */
   target?: string
   title: string

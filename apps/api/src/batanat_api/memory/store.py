@@ -19,11 +19,15 @@ takes a budget.
 Embeddings come from fastembed — ONNX on CPU, ~100MB. Never a torch-backed
 model; see the CPU-only constraint.
 
-**The trust rule.** Every row carries a `trust_tag`. `retrieve_for_prompt`
-returns user-asserted and system-derived memories separately from
-untrusted-external ones, and only the first group is ever eligible for the
-system-prompt position. That separation is the whole of invariant 4, and there
-is a test that holds it in place.
+**The trust rule.** Every row carries a `trust_tag`. `assemble()` splits what it
+retrieves into two buckets by that tag, and only the trusted bucket is ever
+eligible for the system-prompt position; the other is rendered as quoted data in
+the user position, the same as an email body. That separation is the whole of
+invariant 4, and there is a test that holds it in place.
+
+Every retrieval path goes through the same split — semantic and episodic alike.
+A second path that returned bare strings would be a way to get untrusted content
+into the system prompt without anyone noticing, so there isn't one.
 """
 
 from __future__ import annotations
@@ -74,7 +78,11 @@ class AssembledMemory:
     procedural: str | None = None
     trusted: list[RetrievedMemory] = field(default_factory=list)
     untrusted: list[RetrievedMemory] = field(default_factory=list)
-    episodic: list[str] = field(default_factory=list)
+
+    def add(self, memory: RetrievedMemory) -> None:
+        """File a memory by provenance. The only way into either bucket."""
+        target = self.trusted if memory.is_instruction_eligible else self.untrusted
+        target.append(memory)
 
     def system_prompt_lines(self) -> list[str]:
         """Only trusted memories. Untrusted ones are quoted elsewhere, as data."""
@@ -231,8 +239,12 @@ async def search_semantic(
 
 async def recent_episodic(
     session: AsyncSession, user_id: uuid.UUID, *, days: int = 7, limit: int = 10
-) -> list[str]:
-    """Episodic recall by predicate — date range, not similarity."""
+) -> list[RetrievedMemory]:
+    """Episodic recall by predicate — date range, not similarity.
+
+    Returns tagged memories, not bare strings, so the caller cannot lose track
+    of where each one came from.
+    """
     since = datetime.now(UTC) - timedelta(days=days)
     rows = (
         (
@@ -250,7 +262,16 @@ async def recent_episodic(
         .scalars()
         .all()
     )
-    return [row.content for row in rows]
+    return [
+        RetrievedMemory(
+            id=row.id,
+            content=row.content,
+            layer=row.layer,
+            trust_tag=row.trust_tag,
+            source_ref=row.source_ref,
+        )
+        for row in rows
+    ]
 
 
 async def assemble(
@@ -267,12 +288,11 @@ async def assemble(
 
     if query:
         for memory in await search_semantic(user_id, query, limit=semantic_limit):
-            if memory.is_instruction_eligible:
-                assembled.trusted.append(memory)
-            else:
-                assembled.untrusted.append(memory)
+            assembled.add(memory)
 
-    assembled.episodic = await recent_episodic(session, user_id, days=episodic_days)
+    for memory in await recent_episodic(session, user_id, days=episodic_days):
+        assembled.add(memory)
+
     return assembled
 
 

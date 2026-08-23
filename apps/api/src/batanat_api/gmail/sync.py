@@ -126,13 +126,13 @@ async def sync_incremental(
 
     if state.history_id is None:
         # Never synced. Backfill, which also establishes the cursor.
-        return await backfill(session, user_id)
+        return await backfill(session, user_id, notified_history_id=notified_history_id)
 
     try:
         message_ids, latest = await client.list_history(state.history_id)
     except HistoryExpiredError:
         log.warning("gmail.history_expired", stored_history_id=state.history_id)
-        outcome = await backfill(session, user_id, days=7)
+        outcome = await backfill(session, user_id, days=7, notified_history_id=notified_history_id)
         outcome.resynced = True
         return outcome
 
@@ -166,6 +166,7 @@ async def backfill(
     *,
     days: int = BACKFILL_DAYS,
     max_messages: int = BACKFILL_MAX_MESSAGES,
+    notified_history_id: int | None = None,
 ) -> SyncResult:
     """Windowed re-sync. Used for first-time setup and for an expired cursor."""
     state = await get_or_create_state(session, user_id)
@@ -182,8 +183,14 @@ async def backfill(
     result = SyncResult()
     page_token: str | None = None
     collected: list[str] = []
+    # Gmail can return an empty page with a token when a query filters
+    # everything out, so the message count alone is not a termination
+    # condition. Cap the pages too.
+    max_pages = max(1, -(-max_messages // 100)) + 5
 
-    while len(collected) < max_messages:
+    for _ in range(max_pages):
+        if len(collected) >= max_messages:
+            break
         ids, page_token = await client.list_messages(
             query=f"after:{since}",
             limit=min(100, max_messages - len(collected)),
@@ -218,8 +225,10 @@ async def backfill(
         )
     ).scalar_one_or_none()
 
-    if latest_history:
-        state.history_id = latest_history
+    # A cursor must come out of this even when the window was empty. Otherwise
+    # `history_id` stays null, the next notification backfills again, and a
+    # quiet mailbox re-lists thirty days of nothing on every push it receives.
+    state.history_id = latest_history or notified_history_id or await client.profile_history_id()
     state.backfill_status = "complete"
     state.last_synced_at = datetime.now(UTC)
     await session.flush()

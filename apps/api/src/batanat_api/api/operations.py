@@ -881,6 +881,11 @@ async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> Cha
             skill_content=active.content if active else None,
             skill_version_id=active.id if active else None,
             memories=memory.system_prompt_lines(),
+            # Memories derived from email or scraped pages travel as quoted
+            # data, never as instruction. Retrieved and then dropped would be
+            # safe but dishonest — the trust split only means something if the
+            # untrusted half actually goes somewhere.
+            quoted_context=memory.quoted_blocks(),
         )
     except KillSwitchEngagedError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from None

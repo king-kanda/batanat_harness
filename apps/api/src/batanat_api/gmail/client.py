@@ -79,6 +79,16 @@ class GmailClient:
 
         return response.json()
 
+    async def profile_history_id(self) -> int | None:
+        """The mailbox's current historyId.
+
+        Needed when a backfill finds nothing: without a cursor from somewhere,
+        the next notification backfills all over again.
+        """
+        data = await self._request("GET", "/profile")
+        raw = data.get("historyId")
+        return int(raw) if raw else None
+
     async def list_messages(
         self, *, query: str | None = None, limit: int = 25, page_token: str | None = None
     ) -> tuple[list[str], str | None]:

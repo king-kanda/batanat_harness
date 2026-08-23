@@ -149,3 +149,22 @@ def test_the_verification_handshake_uses_a_constant_time_comparison() -> None:
     source = inspect.getsource(webhook.verify)
     assert "compare_digest" in source
     assert "==" not in source.split("compare_digest")[0].split("token")[-1]
+
+
+async def test_a_redelivered_message_is_handled_once(session) -> None:
+    """Meta retries. A retry is not a new event."""
+    from batanat_api.webhooks.idempotency import claim
+
+    assert await claim(session, "whatsapp", "wamid.ABC") is True
+    assert await claim(session, "whatsapp", "wamid.ABC") is False
+    # A different message is still its own event.
+    assert await claim(session, "whatsapp", "wamid.XYZ") is True
+    # The same id from another provider does not collide.
+    assert await claim(session, "gmail", "wamid.ABC") is True
+
+
+async def test_a_delivery_with_no_id_is_still_handled(session) -> None:
+    """Better a possible duplicate than a silently dropped message."""
+    from batanat_api.webhooks.idempotency import claim
+
+    assert await claim(session, "whatsapp", "") is True

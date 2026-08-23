@@ -13,6 +13,10 @@ An inbound message from an unpaired number is *not* an error and is not
 processed as a user instruction — it gets the generic reply. This is where
 untrusted input enters the system, so the rule is simple: no phone-number
 binding, no attribution, no action.
+
+Deliveries are claimed by message id before they are handled. Meta redelivers,
+and once replying APPROVE can commit a CRM write, a redelivered message must
+not commit it twice.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from batanat_api.config import get_settings
 from batanat_api.connections import whatsapp as pairing
 from batanat_api.core.deps import SessionDep
 from batanat_api.core.logging import get_logger
+from batanat_api.webhooks.idempotency import claim
 
 log = get_logger(__name__)
 
@@ -80,6 +85,8 @@ async def inbound(
     try:
         payload = await request.json()
         for message, sender in iter_messages(payload):
+            if not await claim(session, "whatsapp", message.get("id", "")):
+                continue
             await handle_message(session, sender, message)
     except Exception as exc:  # noqa: BLE001
         # Answer 200 anyway: a retry will not fix a parse error, and Meta

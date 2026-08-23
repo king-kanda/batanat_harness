@@ -33,6 +33,9 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy import (
+    false as sa_false,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,6 +65,14 @@ class User(Base, TimestampMixin):
     #: scrypt hash, never a password. Null means the account cannot sign in yet.
     password_hash: Mapped[str | None] = mapped_column(String(255))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    #: Set when the account is seeded with the development password, cleared the
+    #: moment a real one is set. Stored rather than derived: answering it by
+    #: hashing the default password would run a deliberately expensive KDF on
+    #: every request that asks who you are.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_false()
+    )
 
     connections: Mapped[list[Connection]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -356,9 +367,13 @@ class TenderSourceRow(Base, TimestampMixin):
     #: these sites bury the listing several levels down and move it on redesign.
     listing_url: Mapped[str | None] = mapped_column(String(500))
     #: Tried in order when the primary 404s, because they do move.
-    fallback_urls: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    fallback_urls: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    )
     #: Sites the client added themselves, as opposed to the five we shipped.
-    is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_custom: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_false()
+    )
     entity: Mapped[str | None] = mapped_column(String(300))
 
     health: Mapped[enums.SourceHealth] = mapped_column(
@@ -472,6 +487,31 @@ class Approval(Base, TimestampMixin):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     execution_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class ProcessedWebhook(Base, CreatedAtMixin):
+    """One row per webhook delivery we have already handled.
+
+    Providers retry. Meta retries hard, and a redelivery of a message that once
+    approved a CRM write must not approve it a second time. The unique
+    constraint is the whole mechanism: handling is guarded by an insert, so two
+    concurrent deliveries of the same message cannot both win — checking for a
+    row and then inserting one would leave exactly that race open.
+
+    Rows are pruned by the nightly job; only the recent past matters, because a
+    provider that redelivers a week-old message has bigger problems.
+    """
+
+    __tablename__ = "processed_webhooks"
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id"),
+        Index("ix_processed_webhooks_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    #: The provider's own id for this delivery — `wamid.…` for WhatsApp.
+    external_id: Mapped[str] = mapped_column(String(200), nullable=False)
 
 
 class Notification(Base, CreatedAtMixin):

@@ -1,6 +1,6 @@
 """Nightly maintenance.
 
-Five tasks, each independent and each safe to run twice. One failing must not
+Six tasks, each independent and each safe to run twice. One failing must not
 stop the others — a Gmail watch that could not be renewed is a problem, but it
 is not a reason to skip expiring stale approvals.
 
@@ -106,11 +106,19 @@ async def summarise(session: AsyncSession, user_id: uuid.UUID) -> dict[str, Any]
     return await summarise_recent(session, user_id)
 
 
+async def prune_webhook_claims(session: AsyncSession, user_id: uuid.UUID) -> dict[str, Any]:
+    """Drop old delivery claims. Not per-user, but harmless to repeat."""
+    from batanat_api.webhooks.idempotency import prune
+
+    return {"pruned": await prune(session)}
+
+
 TASKS = {
     "gmail_watch": renew_gmail_watch,
     "token_refresh": refresh_tokens,
     "source_health": check_sources,
     "expire_approvals": expire_approvals,
+    "prune_webhook_claims": prune_webhook_claims,
     "summarise": summarise,
 }
 
