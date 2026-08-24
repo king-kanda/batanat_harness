@@ -189,6 +189,89 @@ def _subject(count: int, failed: list[str]) -> str:
     return f"{base} ({len(failed)} source(s) unavailable)" if failed else base
 
 
+async def dispatch_approval_request(
+    session: AsyncSession, user_id: uuid.UUID, *, approval_id: uuid.UUID
+) -> bool:
+    """Ask for a decision on a queued CRM write, on the handset.
+
+    The number in the message is the position in `list_pending`, which is what
+    `APPROVE n` resolves against — so the two must be generated from the same
+    ordering or the reply approves the wrong record. Both use `list_pending`
+    for exactly that reason; nothing here re-sorts.
+
+    Only the position of *this* approval is sent. Listing the whole queue in an
+    alert invites replying to a number that has since shifted, and a CRM write
+    is not something to be approximately right about.
+    """
+    from batanat_api.approvals.service import list_pending
+
+    settings = get_settings()
+    pending = await list_pending(session, user_id)
+    position = next((i for i, a in enumerate(pending, 1) if a.id == approval_id), None)
+    if position is None:
+        # Already decided, or expired between proposing and alerting.
+        log.info("approval.alert_skipped", approval_id=str(approval_id))
+        return False
+
+    approval = pending[position - 1]
+    permalink = f"{settings.web_public_url.rstrip('/')}/approvals"
+    subject = _approval_subject(approval)
+
+    links = (
+        (
+            await session.execute(
+                select(WhatsAppLink).where(
+                    WhatsAppLink.user_id == user_id, WhatsAppLink.is_active.is_(True)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    any_sent = False
+    for link in links:
+        notification = await _record(
+            session,
+            user_id=user_id,
+            channel=enums.NotificationChannel.whatsapp,
+            kind="approval_request",
+            target=link.phone_e164,
+            payload={"approval_id": str(approval_id), "position": position},
+            key=dedupe_key("approval_request", link.phone_e164, str(approval_id)),
+            run_id=approval.run_id,
+        )
+        if not notification:
+            continue
+
+        sent, error = await send_whatsapp_template(
+            link.phone_e164,
+            template="approval_request",
+            variables=[str(position), subject, permalink],
+            fallback_text=(
+                f"#{position} — {approval.operation} {approval.module}: {subject}\n\n"
+                f"Reply APPROVE {position} to write it, or REJECT {position} to discard.\n"
+                f"{permalink}"
+            ),
+        )
+        await _mark(notification, sent=sent, error=error)
+        any_sent = any_sent or sent
+
+    await session.flush()
+    log.info("approval.alert", approval_id=str(approval_id), position=position, sent=any_sent)
+    return any_sent
+
+
+def _approval_subject(approval) -> str:
+    """A human-readable handle for the record, for a one-line alert."""
+    payload = approval.proposed_payload or {}
+    for field in ("Company", "Deal_Name", "Note_Title", "Last_Name", "Email"):
+        value = payload.get(field)
+        if value:
+            return str(value)[:60]
+    return approval.record_id or "a new record"
+
+
 async def dispatch_opportunity_alert(
     session: AsyncSession,
     user_id: uuid.UUID,

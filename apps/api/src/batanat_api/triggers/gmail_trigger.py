@@ -105,7 +105,7 @@ async def run_classification(
 
     skill = await active_skill(session, user_id)
 
-    await AgentRunner(model=model).run(
+    result = await AgentRunner(model=model).run(
         session,
         user_id=user_id,
         trigger=enums.TriggerType.gmail_push,
@@ -123,6 +123,56 @@ async def run_classification(
     )
 
     await alert_on_opportunities(session, user_id, email_ids)
+    await alert_on_proposals(session, user_id, run_id=result.run_id)
+
+
+async def alert_on_proposals(session: AsyncSession, user_id: uuid.UUID, *, run_id) -> int:
+    """Ask for a decision on anything this run queued for the CRM.
+
+    This is the middle of the loop the whole system is built around: an email
+    arrives, the agent proposes, the handset is asked, and only then is anything
+    written. Without it the proposal sits in a queue nobody is told about, and
+    `APPROVE 2` means nothing because no number was ever sent.
+
+    Alerted per approval rather than as a digest, so the number in the message
+    is the number you reply with.
+    """
+    from batanat_api.db.models import Approval
+    from batanat_api.notifications.dispatcher import dispatch_approval_request
+
+    approvals = (
+        (
+            await session.execute(
+                select(Approval)
+                .where(
+                    Approval.run_id == run_id,
+                    Approval.user_id == user_id,
+                    Approval.status == enums.ApprovalStatus.pending,
+                )
+                .order_by(Approval.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    sent = 0
+    for approval in approvals:
+        try:
+            if await dispatch_approval_request(session, user_id, approval_id=approval.id):
+                sent += 1
+        except Exception as exc:  # noqa: BLE001
+            # The proposal is queued and visible in the web app either way; a
+            # failed alert must not roll back the thing it was announcing.
+            log.warning(
+                "gmail.approval_alert_failed",
+                approval_id=str(approval.id),
+                error=type(exc).__name__,
+            )
+
+    if approvals:
+        log.info("gmail.approval_alerts", queued=len(approvals), sent=sent)
+    return sent
 
 
 async def alert_on_opportunities(
