@@ -39,6 +39,13 @@ COPY apps/web ./apps/web
 ARG VITE_API_URL=http://localhost:8000
 ENV VITE_API_URL=${VITE_API_URL}
 
+# Stamped into the bundle so the login screen can say which commit is serving
+# it. Not secrets, and not required — an unstamped build says "dev".
+ARG BUILD_SHA=dev
+ARG BUILD_TIME=""
+ENV BUILD_SHA=${BUILD_SHA} \
+    BUILD_TIME=${BUILD_TIME}
+
 RUN cd apps/web && bun run build
 
 # --- runtime -----------------------------------------------------------------

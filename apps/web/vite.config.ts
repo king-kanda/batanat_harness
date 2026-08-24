@@ -13,6 +13,13 @@ const config = defineConfig({
   // rejects anything not in this list with a wall of text. `.ngrok-free.app`
   // matches any subdomain under that suffix.
   server: { allowedHosts: ['.ngrok-free.app', 'batanat.okandasteven.me'] },
+  // Baked in so a running bundle can say which commit it is. CI passes these
+  // as build args; locally they fall back to something honest rather than
+  // pretending to be a release.
+  define: {
+    __BUILD_SHA__: JSON.stringify(process.env.BUILD_SHA ?? 'dev'),
+    __BUILD_TIME__: JSON.stringify(process.env.BUILD_TIME ?? ''),
+  },
   plugins: [
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),
     tailwindcss(),

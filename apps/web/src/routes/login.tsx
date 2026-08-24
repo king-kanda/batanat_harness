@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -11,11 +11,22 @@ import { api } from '#/lib/api'
 
 export const Route = createFileRoute('/login')({ component: Login })
 
+/**
+ * The seeded development account.
+ *
+ * Prefilled rather than hidden behind a button: on a local machine the only
+ * thing this form guards is a database you also own, and typing it a hundred
+ * times a day protects nobody. `import.meta.env.DEV` is false in any built
+ * bundle, so neither the values nor the prefill survive `bun run build`.
+ */
+const DEV_EMAIL = 'martin@batanat.co.ke'
+const DEV_PASSWORD = 'batanat-dev'
+
 function Login() {
   const navigate = useNavigate()
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(import.meta.env.DEV ? DEV_EMAIL : '')
+  const [password, setPassword] = useState(import.meta.env.DEV ? DEV_PASSWORD : '')
   const [error, setError] = useState<string | null>(null)
 
   const signIn = useMutation({
@@ -96,30 +107,48 @@ function Login() {
 
         {import.meta.env.DEV && (
           <div className="border-border bg-card text-muted-foreground mt-4 rounded-lg border p-3 text-xs">
-            <p className="text-foreground font-medium">Development sign-in</p>
-            <p className="mt-1 font-mono text-[11px]">
-              martin@batanat.co.ke / batanat-dev
-            </p>
+            <p className="text-foreground font-medium">Development sign-in — prefilled</p>
+            <p className="mt-1 font-mono text-[11px]">{DEV_EMAIL} / {DEV_PASSWORD}</p>
             <p className="mt-1.5 leading-relaxed">
               Seeded by <span className="font-mono">make seed</span>. The API refuses to start
               with this password when <span className="font-mono">APP_ENV</span> is not{' '}
-              <span className="font-mono">local</span>.
+              <span className="font-mono">local</span>. This block is compiled out of a
+              production build.
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="mt-2 w-full"
-              onClick={() => {
-                setEmail('martin@batanat.co.ke')
-                setPassword('batanat-dev')
-              }}
-            >
-              Fill them in
-            </Button>
           </div>
         )}
+
+        <BuildStamp />
       </div>
     </div>
+  )
+}
+
+/**
+ * What is actually running.
+ *
+ * Answers "did my deploy land?" without opening a terminal. The web half is
+ * baked at build time by Vite; the API half is fetched, so a mismatch between
+ * the two lines means one of them did not roll — which is the failure mode
+ * worth being able to see at a glance.
+ */
+function BuildStamp() {
+  const health = useQuery({
+    queryKey: ['health-version'],
+    queryFn: api.health,
+    retry: false,
+    staleTime: 60_000,
+  })
+
+  const sha = __BUILD_SHA__.slice(0, 7)
+  const built = __BUILD_TIME__
+
+  return (
+    <p className="text-muted-foreground/70 mt-4 text-center font-mono text-[10px] leading-relaxed">
+      web {sha}
+      {built ? ` · built ${built}` : ''}
+      <br />
+      api {health.data?.version ?? (health.isPending ? '…' : 'unreachable')}
+    </p>
   )
 }
