@@ -13,6 +13,7 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 def _repo_root() -> Path:
     """Where to look for `.env`, in a way that survives being installed.
 
