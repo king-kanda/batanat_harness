@@ -16,6 +16,7 @@ from batanat_api.db.enums import (
     SourceHealth,
     TriggerType,
     TrustLevel,
+    TrustTag,
 )
 
 
@@ -104,6 +105,10 @@ class TenderView(BaseModel):
     county: str | None = None
     first_seen_at: datetime
     is_closed: bool = False
+    #: Why this was judged in or out of sector. Shown so a filtering mistake is
+    #: legible rather than a silent omission.
+    relevance_score: float | None = None
+    relevance_reason: str | None = None
     feedback: str | None = None
 
 
@@ -253,14 +258,81 @@ class FeedbackRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
+    #: Omit to start a thread. An id belonging to someone else starts a new one
+    #: rather than erroring — it is not a capability, and probing must reveal
+    #: nothing about whether it exists.
+    conversation_id: uuid.UUID | None = None
 
 
 class ChatResponse(BaseModel):
     run_id: uuid.UUID
+    conversation_id: uuid.UUID
     reply: str | None
     bound_tools: list[str]
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     status: RunStatus
+    #: How many earlier messages went back to the model this turn, and how many
+    #: were too old to fit the token window. Surfaced so a long thread losing
+    #: its beginning is visible rather than mysterious.
+    history_replayed: int = 0
+    history_dropped: int = 0
+
+
+class ChatMessageView(BaseModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    run_id: uuid.UUID | None = None
+    trust_tag: TrustTag
+    created_at: datetime
+
+
+class ConversationView(BaseModel):
+    id: uuid.UUID
+    title: str
+    last_message_at: datetime
+    created_at: datetime
+    message_count: int = 0
+
+
+class ConversationDetail(BaseModel):
+    conversation: ConversationView
+    messages: list[ChatMessageView] = Field(default_factory=list)
+
+
+class TestSendResult(BaseModel):
+    """What happened when a test message was pushed to a real channel.
+
+    `error` carries the provider's own words rather than a status code — the
+    point of a test button is to tell you what to go and fix.
+    """
+
+    sent: bool
+    channel: str
+    target: str | None = None
+    error: str | None = None
+
+
+class ReportRecipientsView(BaseModel):
+    """Where this user's reports are sent.
+
+    `to`/`cc` are the raw strings as typed; `parsed_*` are what the next send
+    would actually use, shown back so a stray comma is visible before it costs
+    a report.
+    """
+
+    to: str
+    cc: str
+    parsed_to: list[str]
+    parsed_cc: list[str]
+    invalid: list[str] = Field(default_factory=list)
+    #: True when nothing is set, so no report can be delivered at all.
+    deliverable: bool
+
+
+class ReportRecipientsUpdate(BaseModel):
+    to: str = Field(default="", max_length=2000)
+    cc: str = Field(default="", max_length=2000)
 
 
 class DemoDataView(BaseModel):

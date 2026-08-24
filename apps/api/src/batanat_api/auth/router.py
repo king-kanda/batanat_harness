@@ -1,23 +1,13 @@
-"""Authentication endpoints.
+"""Authentication endpoints: who am I, sign in, sign out.
 
-Three: who am I, sign in, sign out.
+Three deliberate details, each easy to undo by accident:
 
-Two details in `login` are deliberate and easy to get wrong.
-
-**The failure message never says which half was wrong.** "No such user" and
-"wrong password" are the same response, because the difference tells an attacker
-which addresses are worth grinding.
-
-**A missing user still costs a hash.** Returning early when the email is unknown
-makes that case measurably faster, which is the same disclosure by a slower
-route. So an unknown email is verified against a dummy hash and takes the same
-~0.6s as a real one.
-
-`/me` deliberately does *no* hashing. It is called on every page load, and
-deriving "is this still the default password?" by running scrypt against the
-default would put a 32MB, half-second KDF on the hottest endpoint in the app —
-several browser tabs regaining focus at once would be enough to stall the API.
-The answer is a stored flag instead, written when the password is set.
+- The login failure message never says which half was wrong; the difference
+  tells an attacker which addresses are worth grinding.
+- An unknown email still costs a hash, so it cannot be identified by timing.
+- `/me` does no hashing at all. It runs on every page load, and deriving
+  "still on the default password?" would put a 0.6s KDF on the hottest
+  endpoint in the app. It reads a stored flag instead.
 """
 
 from __future__ import annotations

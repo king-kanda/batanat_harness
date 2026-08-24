@@ -19,6 +19,7 @@ import { Route as OpportunitiesRouteImport } from './routes/opportunities'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
+import { Route as SettingsReportsRouteImport } from './routes/settings.reports'
 import { Route as SettingsRulesAssistantRouteImport } from './routes/settings.rules-assistant'
 import { Route as SettingsSourcesRouteImport } from './routes/settings.sources'
 import { Route as ReportsTendersLabelRouteImport } from './routes/reports.tenders.$label'
@@ -73,6 +74,11 @@ const SettingsKnowledgeRoute = SettingsKnowledgeRouteImport.update({
   path: '/settings/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsReportsRoute = SettingsReportsRouteImport.update({
+  id: '/settings/reports',
+  path: '/settings/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRulesAssistantRoute = SettingsRulesAssistantRouteImport.update({
   id: '/settings/rules-assistant',
   path: '/settings/rules-assistant',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/reports': typeof SettingsReportsRoute
   '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/reports': typeof SettingsReportsRoute
   '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
+  '/settings/reports': typeof SettingsReportsRoute
   '/settings/rules-assistant': typeof SettingsRulesAssistantRoute
   '/settings/sources': typeof SettingsSourcesRoute
   '/reports/tenders/$label': typeof ReportsTendersLabelRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/reports'
     | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/reports'
     | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
+    | '/settings/reports'
     | '/settings/rules-assistant'
     | '/settings/sources'
     | '/reports/tenders/$label'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
+  SettingsReportsRoute: typeof SettingsReportsRoute
   SettingsRulesAssistantRoute: typeof SettingsRulesAssistantRoute
   SettingsSourcesRoute: typeof SettingsSourcesRoute
   ReportsTendersLabelRoute: typeof ReportsTendersLabelRoute
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsKnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/reports': {
+      id: '/settings/reports'
+      path: '/settings/reports'
+      fullPath: '/settings/reports'
+      preLoaderRoute: typeof SettingsReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/rules-assistant': {
       id: '/settings/rules-assistant'
       path: '/settings/rules-assistant'
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsKnowledgeRoute: SettingsKnowledgeRoute,
+  SettingsReportsRoute: SettingsReportsRoute,
   SettingsRulesAssistantRoute: SettingsRulesAssistantRoute,
   SettingsSourcesRoute: SettingsSourcesRoute,
   ReportsTendersLabelRoute: ReportsTendersLabelRoute,

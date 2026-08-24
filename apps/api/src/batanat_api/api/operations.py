@@ -13,7 +13,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import selectinload
@@ -24,8 +24,11 @@ from batanat_api.config import get_settings
 from batanat_api.contracts.operations import (
     ApprovalDiffEntry,
     ApprovalView,
+    ChatMessageView,
     ChatRequest,
     ChatResponse,
+    ConversationDetail,
+    ConversationView,
     DashboardView,
     DemoDataView,
     DiffLine,
@@ -33,6 +36,8 @@ from batanat_api.contracts.operations import (
     EmailView,
     FeedbackRequest,
     MemoryView,
+    ReportRecipientsUpdate,
+    ReportRecipientsView,
     ReportView,
     RunView,
     ScheduledRunView,
@@ -44,6 +49,7 @@ from batanat_api.contracts.operations import (
     TenderSourceRequest,
     TenderSourceView,
     TenderView,
+    TestSendResult,
     ToolCallView,
 )
 from batanat_api.core.deps import CurrentUser, SessionDep
@@ -51,7 +57,9 @@ from batanat_api.core.logging import get_logger
 from batanat_api.db import enums
 from batanat_api.db.models import (
     Approval,
+    ChatMessage,
     Connection,
+    Conversation,
     Email,
     Feedback,
     Memory,
@@ -59,7 +67,9 @@ from batanat_api.db.models import (
     SkillVersion,
     Tender,
     TenderSourceRow,
+    User,
 )
+from batanat_api.tenders.relevance import RELEVANT_AT
 
 log = get_logger(__name__)
 
@@ -140,6 +150,10 @@ def _tender_view(tender: Tender, *, now: datetime, feedback: str | None = None) 
         county=tender.county,
         first_seen_at=tender.first_seen_at,
         is_closed=bool(tender.closing_date and tender.closing_date < now),
+        relevance_score=float(tender.relevance_score)
+        if tender.relevance_score is not None
+        else None,
+        relevance_reason=tender.relevance_reason,
         feedback=feedback,
     )
 
@@ -342,12 +356,21 @@ async def list_tenders(
     session: SessionDep,
     user: CurrentUser,
     include_closed: bool = False,
+    include_off_sector: bool = False,
     limit: int = Query(default=100, le=500),
 ) -> list[TenderView]:
+    """Energy-sector tenders by default.
+
+    Everything scraped is stored — the national portal is two-thirds civil works
+    — and `include_off_sector` shows the rest. Filtering here rather than at
+    ingest means a mis-scored tender is one toggle away rather than lost.
+    """
     now = datetime.now(UTC)
     query = select(Tender)
     if not include_closed:
         query = query.where((Tender.closing_date.is_(None)) | (Tender.closing_date >= now))
+    if not include_off_sector:
+        query = query.where(Tender.relevance_score >= RELEVANT_AT)
 
     tenders = (
         (await session.execute(query.order_by(Tender.closing_date.asc().nulls_last()).limit(limit)))
@@ -751,9 +774,8 @@ async def list_knowledge(session: SessionDep, user: CurrentUser) -> list[Documen
 async def upload_knowledge(
     session: SessionDep,
     user: CurrentUser,
-    # B008 is about mutable defaults; FastAPI's File/Form markers are the
-    # documented way to declare multipart parts, so the rule is silenced here
-    # rather than worked around.
+    # B008 targets mutable defaults; File/Form are FastAPI's documented way to
+    # declare multipart parts, so it is silenced rather than worked around.
     file: UploadFile = File(...),  # noqa: B008
     trust_tag: str = Form(default="user_asserted"),  # noqa: B008
 ) -> DocumentView:
@@ -857,6 +879,7 @@ async def tender_report(label: str, session: SessionDep, user: CurrentUser) -> R
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> ChatResponse:
     """A trusted turn: the full toolbelt, but writes still queue for approval."""
+    from batanat_api.agent import conversations
     from batanat_api.agent.providers import get_model
     from batanat_api.agent.runner import AgentRunner, KillSwitchEngagedError
     from batanat_api.memory.store import assemble
@@ -867,6 +890,11 @@ async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> Cha
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "No model API key is set for the selected LLM_PROVIDER — see TODO.md.",
         )
+
+    conversation = await conversations.get_or_create(
+        session, user.id, body.conversation_id, first=body.message
+    )
+    window = await conversations.replay_window(session, conversation.id)
 
     active = await skill_service.get_active(session, user.id)
     memory = await assemble(
@@ -882,22 +910,130 @@ async def chat(body: ChatRequest, session: SessionDep, user: CurrentUser) -> Cha
             skill_content=active.content if active else None,
             skill_version_id=active.id if active else None,
             memories=memory.system_prompt_lines(),
-            # Memories derived from email or scraped pages travel as quoted
-            # data, never as instruction. Retrieved and then dropped would be
-            # safe but dishonest — the trust split only means something if the
-            # untrusted half actually goes somewhere.
+            # Memories from email or scraped pages travel as quoted data, never
+            # as instruction — but they do travel; dropping them would make the
+            # trust split meaningless.
             quoted_context=memory.quoted_blocks(),
+            history=window.messages,
+            trigger_ref=str(conversation.id),
         )
     except KillSwitchEngagedError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from None
 
+    # A reply that drew on untrusted memory carries that provenance into the
+    # transcript, so replaying it later keeps quoting rather than asserting.
+    reply_trust = (
+        enums.TrustTag.untrusted_external
+        if memory.quoted_blocks()
+        else enums.TrustTag.system_derived
+    )
+    await conversations.record_turn(
+        session,
+        conversation,
+        user_message=body.message,
+        reply=result.output,
+        run_id=result.run_id,
+        reply_trust=reply_trust,
+    )
+
     return ChatResponse(
         run_id=result.run_id,
+        conversation_id=conversation.id,
         reply=result.output,
         bound_tools=result.bound_tools,
         tool_calls=result.tool_calls,
         status=result.status,
+        history_replayed=window.included,
+        history_dropped=window.dropped,
     )
+
+
+@router.get("/conversations", response_model=list[ConversationView])
+async def list_conversations(session: SessionDep, user: CurrentUser) -> list[ConversationView]:
+    """Threads, most recently active first."""
+    counts = (
+        select(ChatMessage.conversation_id, func.count().label("n"))
+        .group_by(ChatMessage.conversation_id)
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(Conversation, func.coalesce(counts.c.n, 0))
+            .outerjoin(counts, counts.c.conversation_id == Conversation.id)
+            .where(Conversation.user_id == user.id)
+            .order_by(Conversation.last_message_at.desc())
+            .limit(50)
+        )
+    ).all()
+
+    return [
+        ConversationView(
+            id=conversation.id,
+            title=conversation.title,
+            last_message_at=conversation.last_message_at,
+            created_at=conversation.created_at,
+            message_count=count,
+        )
+        for conversation, count in rows
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def get_conversation(
+    conversation_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> ConversationDetail:
+    from batanat_api.agent import conversations
+
+    conversation = (
+        await session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id, Conversation.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if conversation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such conversation.")
+
+    messages = await conversations.load(session, conversation.id)
+    return ConversationDetail(
+        conversation=ConversationView(
+            id=conversation.id,
+            title=conversation.title,
+            last_message_at=conversation.last_message_at,
+            created_at=conversation.created_at,
+            message_count=len(messages),
+        ),
+        messages=[
+            ChatMessageView(
+                id=m.id,
+                role=m.role.value,
+                content=m.content,
+                run_id=m.run_id,
+                trust_tag=m.trust_tag,
+                created_at=m.created_at,
+            )
+            for m in messages
+        ],
+    )
+
+
+@router.delete("/conversations/{conversation_id}", status_code=204)
+async def delete_conversation(
+    conversation_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> Response:
+    """Remove a thread and its messages. Runs and their audit survive."""
+    conversation = (
+        await session.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id, Conversation.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if conversation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such conversation.")
+
+    await session.delete(conversation)
+    return Response(status_code=204)
 
 
 # --- demo data ----------------------------------------------------------------
@@ -944,6 +1080,129 @@ async def demo_clear(session: SessionDep, user: CurrentUser) -> DemoDataView:
 
     await clear_demo_data(session, user.id)
     return _demo_view(await demo_status(session, user.id))
+
+
+# --- report recipients -------------------------------------------------------
+#
+# Per-user; the sender stays in the env. Deliberately outside the capability
+# table — a tool that writes recipients is a tool that exfiltrates.
+
+
+def _report_recipients_view(user: User) -> ReportRecipientsView:
+    from batanat_api.notifications.email_sender import configured_recipients
+
+    parsed = configured_recipients(user.report_to, user.report_cc)
+    return ReportRecipientsView(
+        to=user.report_to,
+        cc=user.report_cc,
+        parsed_to=parsed.to,
+        parsed_cc=parsed.cc,
+        invalid=parsed.invalid,
+        deliverable=parsed.deliverable,
+    )
+
+
+@router.get("/settings/reports", response_model=ReportRecipientsView)
+async def report_recipients_get(user: CurrentUser) -> ReportRecipientsView:
+    return _report_recipients_view(user)
+
+
+@router.put("/settings/reports", response_model=ReportRecipientsView)
+async def report_recipients_put(
+    body: ReportRecipientsUpdate, session: SessionDep, user: CurrentUser
+) -> ReportRecipientsView:
+    """Set the addresses this user's reports go to.
+
+    Malformed addresses are rejected outright: a typo accepted here is a lost
+    report later.
+    """
+    from batanat_api.notifications.email_sender import parse_addresses
+
+    _, bad_to = parse_addresses(body.to)
+    _, bad_cc = parse_addresses(body.cc)
+    if bad_to or bad_cc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Not valid email addresses: {', '.join(bad_to + bad_cc)}",
+        )
+
+    user.report_to = body.to.strip()
+    user.report_cc = body.cc.strip()
+    await session.flush()
+
+    log.info(
+        "settings.report_recipients_updated",
+        user_id=str(user.id),
+        to_count=len(user.report_to.split(",")) if user.report_to else 0,
+        cc_count=len(user.report_cc.split(",")) if user.report_cc else 0,
+    )
+    return _report_recipients_view(user)
+
+
+# --- test sends ---------------------------------------------------------------
+#
+# These deliver a real message on a real channel. That is the point: the failures
+# worth catching before a scheduled run — an unverified SendGrid sender, a
+# WhatsApp number without display-name approval — only appear at send time and
+# are invisible to any amount of configuration checking.
+
+
+@router.post("/test/email", response_model=TestSendResult, summary="Send a test report email")
+async def test_email(session: SessionDep, user: CurrentUser) -> TestSendResult:
+    from batanat_api.notifications import email_sender
+
+    recipients = email_sender.configured_recipients(user.report_to, user.report_cc)
+    sent, error = await email_sender.send_email(
+        subject="Batanat — test email",
+        html=(
+            "<p>This is a test from Batanat. If it reached you, report delivery works: "
+            "SendGrid accepted the send, the sender is verified, and your recipient list "
+            "is correct.</p><p style='color:#666;font-size:13px'>Nothing was scraped or "
+            "written to send this.</p>"
+        ),
+        to_raw=user.report_to,
+        cc_raw=user.report_cc,
+    )
+
+    log.info("test.email", user_id=str(user.id), sent=sent)
+    return TestSendResult(sent=sent, channel="email", target=recipients.describe(), error=error)
+
+
+@router.post("/test/whatsapp", response_model=TestSendResult, summary="Send a test WhatsApp alert")
+async def test_whatsapp(session: SessionDep, user: CurrentUser) -> TestSendResult:
+    from batanat_api.db.models import WhatsAppLink
+    from batanat_api.notifications.dispatcher import send_whatsapp_template
+
+    link = (
+        (
+            await session.execute(
+                select(WhatsAppLink).where(
+                    WhatsAppLink.user_id == user.id, WhatsAppLink.is_active.is_(True)
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if link is None:
+        return TestSendResult(
+            sent=False,
+            channel="whatsapp",
+            error="No number is linked. Pair one under Settings → Connections first.",
+        )
+
+    sent, error = await send_whatsapp_template(
+        link.phone_e164,
+        template="tender_report_ready",
+        variables=["0", "this is a test"],
+        fallback_text=(
+            "Batanat test alert. If you received this, WhatsApp delivery works — "
+            "no tenders were swept to send it."
+        ),
+    )
+
+    log.info("test.whatsapp", user_id=str(user.id), sent=sent)
+    return TestSendResult(sent=sent, channel="whatsapp", target=link.phone_e164, error=error)
 
 
 # --- manual triggers ---------------------------------------------------------

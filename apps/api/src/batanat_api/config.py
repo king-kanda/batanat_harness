@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     token_encryption_key: str | None = None
     session_secret: str | None = None
 
+    # `lax` when the UI and API share a site. Two ngrok subdomains do not
+    # (ngrok-free.app is on the Public Suffix List), and a Lax cookie is never
+    # sent cross-site — login 200s, then /api/auth/me 401s forever. Use `none`
+    # there; `cookie_kwargs` forces Secure on to match.
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+
     # The seeded account's password. Convenient in development, and refused
     # outright outside it — see `assert_safe_for_environment`.
     default_user_email: str = "martin@batanat.co.ke"
@@ -78,14 +84,36 @@ class Settings(BaseSettings):
             )
 
     # --- providers (phase 2) ---
+    #
+    # The redirect URIs are derived from `api_public_url` rather than configured
+    # separately — they are always `<api>/api/connections/<provider>/callback`,
+    # and restating that is how one gets changed and the other does not. Moving
+    # the API to a new tunnel is now a single edit.
+    #
+    # Set the env var to override, for the case where the provider must be sent
+    # somewhere the API does not otherwise know about (a proxy, a vanity host).
     google_client_id: str | None = None
     google_client_secret: str | None = None
-    google_redirect_uri: str = "http://localhost:8000/api/connections/gmail/callback"
+    google_redirect_uri: str | None = None
 
     zoho_client_id: str | None = None
     zoho_client_secret: str | None = None
-    zoho_redirect_uri: str = "http://localhost:8000/api/connections/zoho/callback"
+    zoho_redirect_uri: str | None = None
     zoho_accounts_url: str = "https://accounts.zoho.com"
+
+    def redirect_uri_for(self, provider: str) -> str:
+        """Where the provider sends the browser back after authorisation.
+
+        `provider` is the path segment the callback route matches, which is the
+        provider enum's value — `gmail`, `zoho`.
+        """
+        override = {
+            "gmail": self.google_redirect_uri,
+            "zoho": self.zoho_redirect_uri,
+        }.get(provider)
+        if override:
+            return override
+        return f"{self.api_public_url.rstrip('/')}/api/connections/{provider}/callback"
 
     whatsapp_phone_number_id: str | None = None
     whatsapp_business_number: str | None = None
@@ -114,21 +142,20 @@ class Settings(BaseSettings):
     tool_circuit_breaker_cooldown_s: int = 900
 
     # --- report delivery (phase 6) ---
-    # Reports go out on SendGrid, not Gmail: the Gmail connection is read-only
-    # by design and must stay that way. Recipients are configuration, never
-    # something a run can choose.
+    # Sender only. Recipients live on the user row, set in Settings → Report
+    # recipients; see notifications/email_sender.py.
     sendgrid_api_key: str | None = None
     report_from_email: str | None = None
     report_from_name: str = "Batanat Harness"
     report_reply_to: str | None = None
-    #: Comma-separated.
-    report_to: str = ""
-    report_cc: str = ""
 
     # --- scheduling (phase 5) ---
     scheduler_timezone: str = "Africa/Nairobi"
     tender_cron_daily: str = "0 11,17 * * *"
-    tender_cron_weekly: str = "0 8 * * 1"
+    # Weekday *names*, not numbers. APScheduler counts day-of-week from Monday=0
+    # while crontab counts from Sunday=0, and `from_crontab` does not remap — so
+    # "0 8 * * 1" silently means Tuesday here. Names mean the same in both.
+    tender_cron_weekly: str = "0 8 * * mon"
     maintenance_cron: str = "0 2 * * *"
     # Off by default so tests and one-off scripts never start cron jobs.
     enable_scheduler: bool = False

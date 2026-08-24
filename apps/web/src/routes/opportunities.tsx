@@ -239,9 +239,13 @@ function Emails() {
 
 function Tenders() {
   const [includeClosed, setIncludeClosed] = useState(false)
+  // Off-sector tenders are stored but not shown: the national portal is
+  // two-thirds classrooms and fencing. The toggle exists because a filter you
+  // cannot see through is a filter you cannot correct.
+  const [includeOffSector, setIncludeOffSector] = useState(false)
   const tenders = useQuery({
-    queryKey: ['tenders', includeClosed],
-    queryFn: () => api.results.tenders(includeClosed),
+    queryKey: ['tenders', includeClosed, includeOffSector],
+    queryFn: () => api.results.tenders(includeClosed, includeOffSector),
   })
   const vote = useVote('tender')
 
@@ -251,17 +255,28 @@ function Tenders() {
         <div>
           <CardTitle>Tenders</CardTitle>
           <CardDescription>
-            Soonest deadline first. Every title links to its source document.
+            Energy-sector tenders, soonest deadline first. Every title links to its source
+            document.
           </CardDescription>
         </div>
-        <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={includeClosed}
-            onChange={(e) => setIncludeClosed(e.target.checked)}
-          />
-          include closed
-        </label>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={includeClosed}
+              onChange={(e) => setIncludeClosed(e.target.checked)}
+            />
+            include closed
+          </label>
+          <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={includeOffSector}
+              onChange={(e) => setIncludeOffSector(e.target.checked)}
+            />
+            show everything
+          </label>
+        </div>
       </CardHeader>
 
       {tenders.isPending && (

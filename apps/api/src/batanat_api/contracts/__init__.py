@@ -24,8 +24,11 @@ from batanat_api.contracts.health import (
 from batanat_api.contracts.operations import (
     ApprovalDiffEntry,
     ApprovalView,
+    ChatMessageView,
     ChatRequest,
     ChatResponse,
+    ConversationDetail,
+    ConversationView,
     DashboardView,
     DemoDataView,
     DiffLine,
@@ -33,6 +36,8 @@ from batanat_api.contracts.operations import (
     EmailView,
     FeedbackRequest,
     MemoryView,
+    ReportRecipientsUpdate,
+    ReportRecipientsView,
     ReportView,
     RunView,
     ScheduledRunView,
@@ -44,6 +49,7 @@ from batanat_api.contracts.operations import (
     TenderSourceRequest,
     TenderSourceView,
     TenderView,
+    TestSendResult,
     ToolCallView,
 )
 
@@ -77,10 +83,16 @@ EXPORTED_MODELS = [
     DiffLine,
     DocumentView,
     MemoryView,
+    ReportRecipientsUpdate,
+    ReportRecipientsView,
+    TestSendResult,
     ReportView,
     FeedbackRequest,
+    ChatMessageView,
     ChatRequest,
     ChatResponse,
+    ConversationDetail,
+    ConversationView,
 ]
 
 __all__ = [

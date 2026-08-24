@@ -133,6 +133,7 @@ class AgentRunner:
         memories: list[str] | None = None,
         quoted_context: list[str] | None = None,
         trigger_ref: str | None = None,
+        history: list[dict[str, Any]] | None = None,
     ) -> RunResult:
         settings = get_settings()
 
@@ -145,6 +146,15 @@ class AgentRunner:
 
         # 2. Capabilities, from the trigger alone.
         capability = capabilities.get_capability(trigger)
+
+        # Conversation history belongs to conversational triggers and nowhere
+        # else. An untrusted trigger — a pushed email, a scraped page — must not
+        # be handed what a trusted turn said, so this is dropped here rather
+        # than trusted to every call site to get right.
+        if history and trigger not in capabilities.CONVERSATIONAL_TRIGGERS:
+            log.warning("agent.history_discarded", trigger=trigger.value, messages=len(history))
+            history = None
+
         tools = capabilities.resolve_tools(trigger)
         tool_map = {tool.name: tool for tool in tools}
         tool_names = [tool.name for tool in tools]
@@ -184,8 +194,14 @@ class AgentRunner:
                 trust=capability.trust,
                 tool_names=tool_names,
                 memories=memories,
+                trigger=trigger,
             )
-            messages: list[dict[str, Any]] = [
+            # Prior turns first, then this one. Only chat supplies history —
+            # a Gmail push or a cron sweep has no thread, and giving one a
+            # conversation would let an untrusted trigger read what a trusted
+            # turn said.
+            messages: list[dict[str, Any]] = list(history or [])
+            messages.append(
                 {
                     "role": "user",
                     "content": prompt.build_trigger_message(
@@ -196,7 +212,7 @@ class AgentRunner:
                         quoted_context=quoted_context,
                     ),
                 }
-            ]
+            )
 
             recorded: list[dict[str, Any]] = []
             sequence = 0

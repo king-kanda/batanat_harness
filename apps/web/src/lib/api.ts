@@ -13,6 +13,8 @@ import type {
   ApprovalView,
   AuthorizationUrl,
   ChatResponse,
+  ConversationDetail,
+  ConversationView,
   ConnectionsPage,
   DashboardView,
   DemoDataView,
@@ -24,7 +26,10 @@ import type {
   MemoryView,
   PairingCodeView,
   Provider,
+  ReportRecipientsUpdate,
+  ReportRecipientsView,
   ReportView,
+  TestSendResult,
   RunView,
   SkillDraftResponse,
   SkillValidationView,
@@ -35,6 +40,29 @@ import type {
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+/**
+ * Headers that only matter when the API is behind an ngrok tunnel.
+ *
+ * ngrok's free tier answers browser requests with an HTML interstitial — and
+ * serves it as **HTTP 200**, so `response.ok` is true and the failure surfaces
+ * as a JSON parse error several layers away from the cause. The symptom is
+ * being stuck on the login screen with a healthy API.
+ *
+ * `ngrok-skip-browser-warning` (any value) turns it off. Scoped to ngrok hosts
+ * so a real deployment does not pay for a preflight on every request.
+ */
+const TUNNEL_HEADERS: Record<string, string> = /\bngrok[\w-]*\.(app|io|dev)$/.test(
+  (() => {
+    try {
+      return new URL(API_BASE_URL).hostname
+    } catch {
+      return ''
+    }
+  })(),
+)
+  ? { 'ngrok-skip-browser-warning': 'true' }
+  : {}
 
 export class ApiError extends Error {
   constructor(
@@ -74,6 +102,7 @@ async function request<T>(path: string, init?: Options): Promise<T> {
       credentials: 'include',
       headers: {
         'x-run-id': runId,
+        ...TUNNEL_HEADERS,
         ...(init?.body && !(init.body instanceof FormData)
           ? { 'content-type': 'application/json' }
           : {}),
@@ -98,6 +127,21 @@ async function request<T>(path: string, init?: Options): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T
+
+  // A 200 carrying HTML means something answered on the API's behalf — a
+  // tunnel interstitial, a captive portal, a proxy error page. Left to
+  // `response.json()` it surfaces as "Unexpected token '<'", which points at
+  // the parser rather than the cause.
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('json')) {
+    throw new ApiError(
+      `${path} returned ${contentType || 'an unknown type'} instead of JSON. ` +
+        `Something between the browser and ${API_BASE_URL} is intercepting the request.`,
+      response.status,
+      response.headers.get('x-run-id') ?? runId,
+    )
+  }
+
   return (await response.json()) as T
 }
 
@@ -143,8 +187,10 @@ export const api = {
 
   results: {
     emails: () => request<EmailView[]>('/api/emails'),
-    tenders: (includeClosed = false) =>
-      request<TenderView[]>(`/api/tenders?include_closed=${includeClosed}`),
+    tenders: (includeClosed = false, includeOffSector = false) =>
+      request<TenderView[]>(
+        `/api/tenders?include_closed=${includeClosed}&include_off_sector=${includeOffSector}`,
+      ),
     feedback: (body: {
       subject_type: string
       subject_id: string
@@ -211,6 +257,19 @@ export const api = {
 
   reports: {
     tenders: (label: string) => request<ReportView>(`/api/reports/tenders/${label}`),
+    recipients: {
+      get: () => request<ReportRecipientsView>('/api/settings/reports'),
+      update: (body: ReportRecipientsUpdate) =>
+        request<ReportRecipientsView>('/api/settings/reports', {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        }),
+    },
+  },
+
+  test: {
+    email: () => post<TestSendResult>('/api/test/email'),
+    whatsapp: () => post<TestSendResult>('/api/test/whatsapp'),
   },
 
   demo: {
@@ -219,7 +278,15 @@ export const api = {
     clear: () => post<DemoDataView>('/api/demo/clear'),
   },
 
-  chat: (message: string) => post<ChatResponse>('/api/chat', { message }),
+  chat: (message: string, conversationId?: string) =>
+    post<ChatResponse>('/api/chat', { message, conversation_id: conversationId ?? null }),
+
+  conversations: {
+    list: () => request<ConversationView[]>('/api/conversations'),
+    get: (id: string) => request<ConversationDetail>(`/api/conversations/${id}`),
+    remove: (id: string) =>
+      request<void>(`/api/conversations/${id}`, { method: 'DELETE' }),
+  },
 
   sync: {
     gmail: () => post<Record<string, unknown>>('/api/sync/gmail'),

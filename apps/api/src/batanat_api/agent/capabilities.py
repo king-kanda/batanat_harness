@@ -1,22 +1,16 @@
 """The capability resolver.
 
-This is the security property the rest of the system is built on: **what a run
-is allowed to do is decided by what triggered it, before the model is called.**
+The security property the rest of the system rests on: **what a run may do is
+decided by what triggered it, before the model is called.**
 
-A Gmail push is caused by an email — content written by a stranger. A tender
-cron is caused by a scraped page — content written by a stranger. Neither can
-be allowed to reach a tool that writes to the CRM, because the instruction to
-do so could have come from the stranger.
+Enforcement is the tool schema, not a prompt instruction and not a check inside
+the tool. `resolve_tools(gmail_push)` omits `commit_crm_write` entirely, so the
+model is never told it exists. An injection cannot call a tool it has no name
+for.
 
-The enforcement is not a prompt instruction, and not a check inside the tool. It
-is the tool schema itself: `resolve_tools(gmail_push)` returns a list that does
-not contain `commit_crm_write`, so the model is never told that tool exists and
-has no name to call. A prompt injection cannot invoke a tool that is absent from
-its function definitions.
-
-`resolve_tools` is a pure function over a table. Keep it that way — the moment
-it needs a database, a request context, or a feature flag, it stops being
-something you can read and be certain about.
+Keep `resolve_tools` a pure function over a table. The moment it needs a
+database or a feature flag, it stops being something you can read and be
+certain about.
 """
 
 from __future__ import annotations
@@ -41,9 +35,8 @@ class Capability:
     uses_llm: bool = True
 
 
-# The table. Every trigger in `TriggerType` must appear here — a test enforces
-# that, so adding a trigger without deciding its capabilities fails the build
-# rather than silently defaulting to something permissive.
+# Every trigger in `TriggerType` must appear here — enforced by a test, so a
+# new trigger cannot silently default to something permissive.
 POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
     {
         # An email body is attacker-controlled text. Read and propose only.
@@ -73,18 +66,16 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
             ),
             payload_is_untrusted=False,
         ),
-        # A human, on a handset proven by the pairing flow. Trusted enough to
-        # approve something already queued; never to originate a write.
+        # A human on a handset proven by the pairing flow, using WhatsApp as a
+        # chat interface. Reads and proposes; cannot commit.
         #
-        # Read this before wiring the trigger: `approve_pending` executes the
-        # CRM write immediately, so once inbound WhatsApp reaches the runner,
-        # the strength of the approval gate is exactly the strength of phone
-        # number pairing — and `payload_is_untrusted=False` puts the message
-        # body in the instruction position. Constrain the body through
-        # `approvals.service.parse_decision_reply` rather than handing it to the
-        # model as free text; that parser exists for this reason and accepts
-        # nothing but APPROVE/REJECT plus an index. The webhook currently
-        # acknowledges and stops, so none of this is live yet.
+        # `approve_pending` is deliberately absent, though the trust level would
+        # permit it. Approving from WhatsApp still works — the webhook parses
+        # `APPROVE n` with `approvals.parse_decision_reply` before the model is
+        # ever called. Keeping the tool out of the schema means the difference
+        # between "the handset can approve what we asked about" and "anything
+        # that can talk to the model can talk it into a CRM write", and only the
+        # first of those is a gate.
         TriggerType.whatsapp_inbound: Capability(
             trust=TrustLevel.trusted,
             tools=(
@@ -95,7 +86,6 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
                 "web_search",
                 "crm_read",
                 "propose_crm_entry",
-                "approve_pending",
             ),
             payload_is_untrusted=False,
         ),
@@ -121,8 +111,14 @@ POLICY: MappingProxyType[TriggerType, Capability] = MappingProxyType(
 #: table by a test, so a careless edit to POLICY fails rather than ships.
 TRUSTED_ONLY_TOOLS = frozenset({"commit_crm_write", "approve_pending", "crm_read"})
 
-#: Tools that must never exist at all. There is no delete path in this system;
-#: if one of these ever appears in the registry, that is a bug, not a feature.
+#: Triggers that carry a conversation, and may therefore be replayed prior
+#: turns. Everything else runs blind by design: a pushed email or a scraped page
+#: must never be handed what a trusted turn said, and the payload of both is
+#: attacker-controlled. Asserted against the table by a test — a trigger cannot
+#: appear here while its payload is untrusted.
+CONVERSATIONAL_TRIGGERS = frozenset({TriggerType.web_chat, TriggerType.whatsapp_inbound})
+
+#: Tools that must never exist. There is no delete path in this system.
 FORBIDDEN_TOOLS = frozenset({"crm_delete", "delete_record", "purge"})
 
 
@@ -167,11 +163,10 @@ def audit_policy() -> dict[str, dict[str, object]]:
 
 
 def validate_policy() -> None:
-    """Check the table against the registry. Called at startup — fail fast.
+    """Check the table against the registry at startup.
 
-    Three things must hold, and none of them are guaranteed by types alone:
-    every trigger has a policy, every named tool exists, and no untrusted
-    trigger has been handed a trusted-only tool.
+    Every trigger has a policy, every named tool exists, and no untrusted
+    trigger holds a trusted-only tool. None of it is guaranteed by types.
     """
     missing = [t.value for t in TriggerType if t not in POLICY]
     if missing:

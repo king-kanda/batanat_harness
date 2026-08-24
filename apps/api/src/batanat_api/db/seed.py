@@ -39,7 +39,7 @@ def _shipped_sources() -> list[dict]:
             "base_url": config.listing_url,
             "listing_url": config.listing_url,
             "fallback_urls": list(config.fallback_urls),
-            "adapter": "TableTenderSource",
+            "adapter": config.adapter,
         }
         for config in CONFIGS
     ]
@@ -120,14 +120,11 @@ async def seed() -> None:
         else:
             log.info("seed.user.exists", email=DEMO_EMAIL, user_id=str(user.id))
 
-        # Give the account a password if it has none. Never overwrite one that
-        # exists — re-seeding must not silently reset a changed password back to
-        # the development default.
+        # Only if there is none — re-seeding must not reset a changed password.
         settings = get_settings()
         if user.password_hash is None:
             user.password_hash = hash_password(settings.default_user_password)
-            # Recorded, not derived. `/api/auth/me` reads this flag; working it
-            # out by hashing the default would cost 0.6s on every page load.
+            # Stored, not derived: deriving it costs 0.6s on every page load.
             user.must_change_password = True
             await session.flush()
             log.warning(
@@ -138,9 +135,7 @@ async def seed() -> None:
         elif not user.must_change_password and verify_password(
             settings.default_user_password, user.password_hash
         ):
-            # An account seeded before the flag existed. One hash here, at seed
-            # time, so the warning banner is right without paying for it on
-            # every request.
+            # Seeded before the flag existed. One hash here beats one per request.
             user.must_change_password = True
             await session.flush()
             log.warning("seed.password.still_default", email=user.email)

@@ -1,26 +1,20 @@
 """Durable run state, on LangGraph's Postgres checkpointer.
 
-**A deviation from the PRD worth stating plainly.** The PRD asks for "a LangGraph
-graph with a durable Postgres checkpointer". What is built is an explicit loop
-(`agent.runner`) plus LangGraph's checkpointer for durability, rather than
-expressing the loop as a `StateGraph`.
+**A deviation from the PRD, stated plainly.** The PRD asks for a LangGraph
+graph with a durable Postgres checkpointer. What is built is an explicit loop
+(`agent.runner`) plus that checkpointer, rather than a `StateGraph`.
 
-The reason is the security model. The claim this system sells is that an
-untrusted trigger cannot reach a write tool, and the evidence for that claim is
-that you can read `capabilities.resolve_tools` and `runner._invoke_tool` and see
-it. Expressing the same thing as a graph of nodes puts the budget checks, the
-circuit breaker and the tool dispatch behind a framework's execution semantics —
-which is fine until someone has to audit it, and then it is the difference
-between "I can see this is true" and "I believe this is true".
+The reason is auditability. This system's claim is that an untrusted trigger
+cannot reach a write tool, and the evidence is that you can read
+`capabilities.resolve_tools` and `runner._invoke_tool` and see it. A graph of
+nodes puts budget checks, the circuit breaker and tool dispatch behind a
+framework's execution semantics — the difference between "I can see this is
+true" and "I believe this is true".
 
-What LangGraph is genuinely good at here is the durable part, so that is what it
-does: message history is checkpointed to Postgres per iteration under a thread
-id, so a run interrupted by a restart can be resumed rather than replayed from
-the beginning.
-
-Happy to convert the loop to a `StateGraph` if you would rather have the
-framework's shape — it is a contained change, since the pieces are already
-separated.
+LangGraph does the part it is genuinely good at: message history checkpointed
+per iteration under a thread id, so an interrupted run resumes rather than
+replays. Converting the loop to a `StateGraph` is a contained change if you
+would rather have the framework's shape.
 """
 
 from __future__ import annotations

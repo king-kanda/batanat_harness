@@ -6,15 +6,16 @@ there is one table parser that maps header text to fields, configured per site.
 Anything a site does that this cannot express gets its own subclass.
 
 Per the PRD the scrapers are timeboxed, and this is where that bit. Verified
-against the live sites on 2026-08-23:
+against the live sites on 2026-08-24:
 
-* **REREC** — working. Server-rendered table (reference, title, dates, status,
-  document link). 157 tenders on the last run.
-* **KPLC, KenGen, KETRACO, PPIP** — all four render their tender listings
-  client-side. The HTML we receive is page chrome plus JavaScript; the tenders
-  arrive later over XHR. Scraping them needs a headless browser or each site's
-  private JSON endpoint, neither of which is worth the fragility here. They are
-  marked degraded and covered by the search fallback.
+* **REREC** — working. Server-rendered table. 157 tenders on the last run.
+* **PPIP** — working, but not from here: it is a Vue SPA, so it reads its JSON
+  API instead. See `tenders/ppip_api.py`. 310 tenders, and as the national
+  portal it covers entities the other four would only duplicate.
+* **KPLC, KenGen, KETRACO** — still broken. KenGen renders client-side; KETRACO
+  404s on every known path; KPLC now publishes PDF links in Tailwind divs
+  rather than a table. All three are marked degraded and covered by PPIP and
+  the search fallback.
 
 Both parsing strategies are tried before a source is called broken: the table
 parser first, then document-link extraction for card and accordion layouts.
@@ -267,6 +268,9 @@ class SourceConfig:
     #: Alternate paths tried in order when the primary 404s, because these sites
     #: move their tender page on every redesign.
     fallback_urls: tuple[str, ...] = field(default=())
+    #: Which reader to build. Everything is a table scraper except PPIP, which
+    #: has a JSON API worth using instead. Matches `tender_sources.adapter`.
+    adapter: str = "TableTenderSource"
 
 
 CONFIGS: tuple[SourceConfig, ...] = (
@@ -307,8 +311,9 @@ CONFIGS: tuple[SourceConfig, ...] = (
         key="ppip",
         name="PPIP",
         entity="Public Procurement Information Portal",
-        listing_url="https://tenders.go.ke/website/tenders/index",
-        fallback_urls=("https://tenders.go.ke/api/active-tenders",),
+        # The API, not the SPA route the humans use. See tenders/ppip_api.py.
+        listing_url="https://tenders.go.ke/api/active-tenders",
+        adapter="PpipApiSource",
     ),
 )
 
@@ -318,6 +323,11 @@ class ResilientTableSource(TableTenderSource):
 
     These sites reorganise; a 404 on the primary path is a redesign, not an
     outage, and one of the alternates is usually right.
+
+    A candidate is only accepted if it *parses*, not merely if it loads. That
+    distinction is the whole point of the list: KETRACO's open-tenders page
+    answers 200 with no table on it, and falling back on fetch failure alone
+    stopped there — never trying the alternate that does have one.
     """
 
     def __init__(self, config: SourceConfig):
@@ -330,21 +340,57 @@ class ResilientTableSource(TableTenderSource):
         self.candidate_urls = (config.listing_url, *config.fallback_urls)
 
     async def fetch(self, client: PoliteClient) -> FetchResult:
+        """The first candidate that both loads and yields tenders.
+
+        Parsing here rather than in `parse` looks odd, but the alternative is
+        for `collect` to know about candidate lists. The parsed result is not
+        thrown away — `parse` re-runs on the chosen page, which is cached.
+        """
         errors: list[str] = []
+        first_loaded: FetchResult | None = None
+
         for url in self.candidate_urls:
             try:
-                return await client.fetch(self.key, url)
+                result = await client.fetch(self.key, url)
             except SourceUnavailableError as exc:
                 errors.append(f"{url}: {exc}")
+                continue
+
+            first_loaded = first_loaded or result
+            try:
+                if self.parse(result):
+                    return result
+            except SourceUnavailableError as exc:
+                errors.append(f"{url}: {exc}")
+
+        # Everything loaded but nothing parsed: return the first page anyway so
+        # the failure names a real URL and the snapshot is worth looking at.
+        if first_loaded is not None:
+            return first_loaded
+
         raise SourceUnavailableError(
             f"No reachable listing for {self.key}. Tried: " + "; ".join(errors)
         )
 
 
+def build_source(config: SourceConfig) -> TenderSource:
+    """One reader for one config, chosen by `adapter`."""
+    if config.adapter == "PpipApiSource":
+        from batanat_api.tenders.ppip_api import PpipApiSource
+
+        return PpipApiSource(
+            key=config.key,
+            name=config.name,
+            entity=config.entity,
+            listing_url=config.listing_url,
+        )
+    return ResilientTableSource(config)
+
+
 def build_sources(keys: list[str] | None = None) -> list[TenderSource]:
     """The shipped five, from the static table."""
     selected = [c for c in CONFIGS if not keys or c.key in keys]
-    return [ResilientTableSource(config) for config in selected]
+    return [build_source(config) for config in selected]
 
 
 async def build_sources_from_db(session, keys: list[str] | None = None) -> list[TenderSource]:
@@ -373,13 +419,14 @@ async def build_sources_from_db(session, keys: list[str] | None = None) -> list[
         if row.adapter == "WebSearchSource":
             continue
         sources.append(
-            ResilientTableSource(
+            build_source(
                 SourceConfig(
                     key=row.key,
                     name=row.name,
                     entity=row.entity or row.name,
                     listing_url=row.listing_url or row.base_url,
                     fallback_urls=tuple(row.fallback_urls or ()),
+                    adapter=row.adapter or "TableTenderSource",
                 )
             )
         )

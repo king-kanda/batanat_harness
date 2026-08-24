@@ -74,6 +74,16 @@ class User(Base, TimestampMixin):
         Boolean, nullable=False, default=False, server_default=sa_false()
     )
 
+    #: Comma-separated report recipients. The only place these live — no env
+    #: fallback, so empty means no report can be delivered. Written only by the
+    #: session-authed settings endpoint; no agent capability touches them.
+    report_to: Mapped[str] = mapped_column(
+        String(2000), nullable=False, default="", server_default=""
+    )
+    report_cc: Mapped[str] = mapped_column(
+        String(2000), nullable=False, default="", server_default=""
+    )
+
     connections: Mapped[list[Connection]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -277,6 +287,67 @@ class Run(Base, CreatedAtMixin):
     tool_calls: Mapped[list[ToolCall]] = relationship(
         back_populates="run", cascade="all, delete-orphan", order_by="ToolCall.sequence"
     )
+
+
+class Conversation(Base, TimestampMixin):
+    """A chat thread.
+
+    Runs are per-turn and always were; this is the thread that ties them
+    together so a reload does not lose the conversation, and so prior turns can
+    be replayed to the model.
+    """
+
+    __tablename__ = "conversations"
+    __table_args__ = (Index("ix_conversations_user_last_message", "user_id", "last_message_at"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Derived from the opening message. Cosmetic — used to list threads.
+    title: Mapped[str] = mapped_column(String(200), nullable=False, default="New chat")
+    #: Denormalised so the thread list sorts without touching every message.
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    messages: Mapped[list[ChatMessage]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ChatMessage.created_at",
+    )
+
+
+class ChatMessage(Base, CreatedAtMixin):
+    """One message in a thread.
+
+    `run_id` is set on assistant messages, tying the reply to the run that
+    produced it — so the tool calls, bound tools and token cost behind an answer
+    stay reachable from the transcript.
+
+    `trust_tag` records how the content entered the system. A reply that quoted
+    a scraped page is `untrusted_external` and must stay quoted when replayed:
+    being older does not make content trusted, and this is the field that stops
+    a thread laundering an injection into instruction position.
+    """
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        Index("ix_chat_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[enums.ChatRole] = mapped_column(
+        pg_enum(enums.ChatRole, "chat_role"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("runs.id", ondelete="SET NULL"))
+    trust_tag: Mapped[enums.TrustTag] = mapped_column(
+        pg_enum(enums.TrustTag, "trust_tag"), nullable=False, default=enums.TrustTag.user_asserted
+    )
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
 class ToolCall(Base, CreatedAtMixin):

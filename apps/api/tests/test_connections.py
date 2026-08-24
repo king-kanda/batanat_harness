@@ -46,6 +46,67 @@ def _params(url: str) -> dict[str, str]:
     return {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
 
 
+# --- redirect URIs follow the API ---------------------------------------------
+#
+# These used to be standalone env vars that repeated whatever `API_PUBLIC_URL`
+# already said. Moving the API to a tunnel meant editing three values, and
+# missing one sent the provider back to localhost — an authorisation flow that
+# fails only at the final redirect, long after it looked like it was working.
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_path"),
+    [
+        ("gmail", "/api/connections/gmail/callback"),
+        ("zoho", "/api/connections/zoho/callback"),
+    ],
+)
+def test_redirect_uris_are_derived_from_the_api_url(
+    monkeypatch: pytest.MonkeyPatch, provider, expected_path
+) -> None:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "api_public_url", "https://abc123.ngrok-free.app")
+    monkeypatch.setattr(settings, "google_redirect_uri", None)
+    monkeypatch.setattr(settings, "zoho_redirect_uri", None)
+
+    assert settings.redirect_uri_for(provider) == f"https://abc123.ngrok-free.app{expected_path}"
+
+
+def test_a_trailing_slash_on_the_api_url_does_not_double_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Providers match the redirect byte for byte; `//callback` is a rejection."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "api_public_url", "https://api.batanat.co.ke/")
+    monkeypatch.setattr(settings, "zoho_redirect_uri", None)
+
+    assert settings.redirect_uri_for("zoho") == (
+        "https://api.batanat.co.ke/api/connections/zoho/callback"
+    )
+
+
+def test_an_explicit_override_still_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """For a proxy or vanity host the API cannot infer."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "api_public_url", "https://internal:8000")
+    monkeypatch.setattr(settings, "google_redirect_uri", "https://vanity.example/cb")
+
+    assert settings.redirect_uri_for("gmail") == "https://vanity.example/cb"
+
+
+def test_the_authorization_url_carries_the_derived_redirect(
+    monkeypatch: pytest.MonkeyPatch, zoho: ZohoOAuthProvider
+) -> None:
+    """The whole point: change one value, and the outgoing URL follows."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "api_public_url", "https://abc123.ngrok-free.app")
+    monkeypatch.setattr(settings, "zoho_redirect_uri", None)
+
+    params = _params(zoho.authorization_url("state-token"))
+    assert params["redirect_uri"] == ("https://abc123.ngrok-free.app/api/connections/zoho/callback")
+    assert "localhost" not in params["redirect_uri"]
+
+
 # --- Google ------------------------------------------------------------------
 
 

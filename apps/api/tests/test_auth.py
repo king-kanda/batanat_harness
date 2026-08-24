@@ -116,22 +116,59 @@ def test_an_unknown_email_still_costs_a_full_hash() -> None:
 # --- session cookie -----------------------------------------------------------
 
 
-def test_the_session_cookie_is_locked_down() -> None:
+@pytest.fixture
+def samesite(monkeypatch: pytest.MonkeyPatch):
+    """Pin the SameSite setting.
+
+    These assertions used to read whatever the developer's `.env` happened to
+    say, so pointing a local checkout at two ngrok tunnels turned them red. The
+    setting under test has to be set by the test.
+    """
+
+    def _set(value: str):
+        monkeypatch.setattr(get_settings(), "session_cookie_samesite", value)
+
+    return _set
+
+
+def test_the_session_cookie_is_locked_down(samesite) -> None:
     from batanat_api.auth.sessions import cookie_kwargs
 
+    samesite("lax")
     flags = cookie_kwargs()
     assert flags["httponly"] is True, "JavaScript must not be able to read the session"
     assert flags["samesite"] == "lax", "CSRF protection for cross-site requests"
 
 
-def test_the_cookie_is_marked_secure_outside_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cookie_is_marked_secure_outside_localhost(
+    monkeypatch: pytest.MonkeyPatch, samesite
+) -> None:
     from batanat_api.auth.sessions import cookie_kwargs
 
+    samesite("lax")
     monkeypatch.setattr(get_settings(), "api_public_url", "https://api.batanat.co.ke")
     assert cookie_kwargs()["secure"] is True
 
     monkeypatch.setattr(get_settings(), "api_public_url", "http://localhost:8000")
     assert cookie_kwargs()["secure"] is False
+
+
+def test_samesite_none_forces_secure_even_on_localhost(
+    monkeypatch: pytest.MonkeyPatch, samesite
+) -> None:
+    """Browsers discard `SameSite=None` without `Secure`, silently.
+
+    That failure looks exactly like a working API with a broken login, so the
+    combination is made impossible here rather than left to whoever edits `.env`.
+    """
+    from batanat_api.auth.sessions import cookie_kwargs
+
+    samesite("none")
+    monkeypatch.setattr(get_settings(), "api_public_url", "http://localhost:8000")
+
+    flags = cookie_kwargs()
+    assert flags["samesite"] == "none"
+    assert flags["secure"] is True
 
 
 async def test_a_session_resolves_then_stops_after_logout() -> None:

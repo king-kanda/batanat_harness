@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { Loader2, Send, TriangleAlert } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
+import { Loader2, Send, SquarePen, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '#/components/ui/button'
@@ -9,9 +9,29 @@ import { Textarea } from '#/components/ui/textarea'
 import { ApiError, api } from '#/lib/api'
 import { cn } from '#/lib/utils'
 
-export const Route = createFileRoute('/')({ component: Home })
+type Search = { c?: string }
+
+export const Route = createFileRoute('/')({
+  component: Home,
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    c: typeof search.c === 'string' ? search.c : undefined,
+  }),
+})
 
 type Turn = { role: 'you' | 'agent'; text: string; tools?: string[] }
+
+/**
+ * The thread this tab is in, when the URL does not name one.
+ *
+ * `?c=<id>` is the source of truth — it makes a conversation linkable and lets
+ * the sidebar switch between them. sessionStorage only answers "which thread
+ * was I in?" on a bare reload of `/`. Session rather than local storage
+ * because a second tab is a second conversation.
+ */
+const THREAD_KEY = 'batanat.conversation'
+
+const rememberedThread = () =>
+  typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(THREAD_KEY)
 
 /**
  * Chat is the front door to the harness.
@@ -22,9 +42,65 @@ type Turn = { role: 'you' | 'agent'; text: string; tools?: string[] }
  * conversation is the interface.
  */
 function Home() {
+  const { c: urlThread } = useSearch({ from: '/' })
+  const navigate = useNavigate({ from: '/' })
+  const queryClient = useQueryClient()
+
   const [input, setInput] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  // The URL names the thread; sessionStorage only answers a bare `/`.
+  const wanted = urlThread ?? rememberedThread()
+
+  // Load whenever the wanted thread changes, which is how clicking a different
+  // conversation in the sidebar swaps the transcript.
+  //
+  // Failure is not surfaced: a thread that was deleted, or belongs to a
+  // signed-out session, should quietly become a new chat rather than greet you
+  // with an error you cannot act on.
+  useEffect(() => {
+    if (!wanted) {
+      setConversationId(null)
+      setTurns([])
+      return
+    }
+    if (wanted === conversationId) return
+
+    let cancelled = false
+    setRestoring(true)
+    api.conversations
+      .get(wanted)
+      .then((detail) => {
+        if (cancelled) return
+        setConversationId(detail.conversation.id)
+        sessionStorage.setItem(THREAD_KEY, detail.conversation.id)
+        setTurns(
+          (detail.messages ?? []).map((m) => ({
+            role: m.role === 'user' ? ('you' as const) : ('agent' as const),
+            text: m.content,
+          })),
+        )
+      })
+      .catch(() => {
+        if (cancelled) return
+        sessionStorage.removeItem(THREAD_KEY)
+        setConversationId(null)
+        setTurns([])
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // `conversationId` is deliberately excluded: including it would re-run the
+    // effect after a load and fight the state it just set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted])
 
   // Once you have engaged, the summary is noise. It does not come back on
   // clearing the box — that would make it flicker while you edit.
@@ -41,9 +117,26 @@ function Home() {
     return () => clearTimeout(timer)
   }, [engaged])
 
+  // Starting a new thread is a fresh start, so the summary comes back. Keyed on
+  // the thread rather than on `engaged`, because clearing the input box must
+  // *not* bring it back — that is the flicker the comment above guards against.
+  useEffect(() => {
+    if (!wanted) setGreetingMounted(true)
+  }, [wanted])
+
   const send = useMutation({
-    mutationFn: api.chat,
+    mutationFn: (message: string) => api.chat(message, conversationId ?? undefined),
     onSuccess: (response) => {
+      setConversationId(response.conversation_id)
+      sessionStorage.setItem(THREAD_KEY, response.conversation_id)
+      // Put the new thread in the URL so it is linkable and the sidebar can
+      // highlight it. `replace` keeps Back meaning "the page before chat".
+      if (urlThread !== response.conversation_id) {
+        navigate({ search: { c: response.conversation_id }, replace: true })
+      }
+      // The first message of a thread creates it, and renames it on every
+      // turn's `last_message_at` — the list has to hear about both.
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
       setTurns((t) => [
         ...t,
         {
@@ -63,6 +156,15 @@ function Home() {
     setTurns((t) => [...t, { role: 'you', text: message }])
     setInput('')
     send.mutate(message)
+  }
+
+  const startNewThread = () => {
+    sessionStorage.removeItem(THREAD_KEY)
+    setConversationId(null)
+    setTurns([])
+    setError(null)
+    setGreetingMounted(true)
+    navigate({ search: {}, replace: true })
   }
 
   return (
@@ -88,8 +190,20 @@ function Home() {
         </div>
       )}
 
+      {restoring && turns.length === 0 && (
+        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden /> picking up where you left off…
+        </p>
+      )}
+
       {turns.length > 0 && (
         <div className="space-y-5">
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={startNewThread} disabled={send.isPending}>
+              <SquarePen className="size-3.5" aria-hidden />
+              New chat
+            </Button>
+          </div>
           {turns.map((turn, index) => (
             <div key={index}>
               <div className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">

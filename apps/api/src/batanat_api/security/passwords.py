@@ -1,23 +1,15 @@
 """Password hashing.
 
-`hashlib.scrypt` from the standard library, not bcrypt or argon2 from PyPI.
-scrypt is a memory-hard KDF, it is in Python itself, and it avoids adding a
-dependency with native build steps for the one thing it would do here.
+`hashlib.scrypt` from the standard library — memory-hard, no dependency with
+native build steps. n=2^15, r=8, p=1 is 32MB and ~0.6s per hash here: right for
+the login path, where it happens once.
 
-Parameters follow the interactive-login end of the usual recommendations:
-n=2^15, r=8, p=1 — 32MB and, measured on this hardware, about 0.6s per hash.
-That is slow enough to make offline cracking expensive and acceptable on the
-login path, where it happens once.
+Nowhere else. `/api/auth/me` once called `verify_password` to derive whether an
+account was still on the seeded password, putting 0.6s on the endpoint the UI
+hits every page load. If you are hashing to derive a fact, store the fact.
 
-It is *not* acceptable anywhere else. Do not call `verify_password` to answer a
-question on a hot path: `/api/auth/me` once used it to work out whether an
-account still had the seeded password, which put 0.6s and 32MB on the endpoint
-the UI hits on every page load. That is a stored flag now. If you find yourself
-hashing to derive a fact, store the fact.
-
-The stored form carries its own parameters, so raising the cost later does not
-invalidate existing hashes — `needs_rehash` tells the caller when to upgrade one
-on the next successful login.
+Stored hashes carry their own parameters, so raising the cost later is safe —
+`needs_rehash` flags them for upgrade on the next login.
 """
 
 from __future__ import annotations

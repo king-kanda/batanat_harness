@@ -9,6 +9,10 @@ const config = defineConfig({
   // exposed to the browser — server secrets in that file are never bundled.
   envDir: '../..',
   resolve: { tsconfigPaths: true },
+  // ngrok rotates the subdomain on the free tier, and Vite's host check
+  // rejects anything not in this list with a wall of text. `.ngrok-free.app`
+  // matches any subdomain under that suffix.
+  server: { allowedHosts: ['.ngrok-free.app', 'batanat.okandasteven.me'] },
   plugins: [
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),
     tailwindcss(),

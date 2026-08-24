@@ -64,7 +64,7 @@ class GoogleOAuthProvider(OAuthProvider):
         return (
             settings.google_client_id or "",
             settings.google_client_secret or "",
-            settings.google_redirect_uri,
+            settings.redirect_uri_for("gmail"),
         )
 
     def authorization_url(self, state: str) -> str:

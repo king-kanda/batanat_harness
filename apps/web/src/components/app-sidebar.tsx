@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Library,
   ListChecks,
+  Mail,
   MessageSquare,
   Plug,
   Radio,
@@ -13,7 +14,9 @@ import {
   LogOut,
   Rocket,
 } from 'lucide-react'
+import { Fragment } from 'react'
 
+import { ChatHistory } from '#/components/chat-history'
 import { StatusDot, toneFor } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -52,6 +55,7 @@ const CONFIGURE = [
   { to: '/settings/knowledge', label: 'Knowledge base', icon: Library },
   { to: '/settings/sources', label: 'Sources & schedule', icon: Radio },
   { to: '/settings/connections', label: 'Connections', icon: Plug },
+  { to: '/settings/reports', label: 'Report recipients', icon: Mail },
 ] as const
 
 const GROUPS = [
@@ -130,32 +134,38 @@ export function AppSidebar() {
         )}
 
         {GROUPS.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map(({ to, label, icon: Icon }) => (
-                  <SidebarMenuItem key={to}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
-                      tooltip={label}
-                    >
-                      <Link to={to}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                    {label === 'Approvals' && pending > 0 && (
-                      <SidebarMenuBadge className="text-status-degraded">
-                        {pending}
-                      </SidebarMenuBadge>
-                    )}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Fragment key={group.label}>
+            <SidebarGroup>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map(({ to, label, icon: Icon }) => (
+                    <SidebarMenuItem key={to}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
+                        tooltip={label}
+                      >
+                        <Link to={to}>
+                          <Icon />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                      {label === 'Approvals' && pending > 0 && (
+                        <SidebarMenuBadge className="text-status-degraded">
+                          {pending}
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* Directly under Work, where Chat is. Threads are things you
+                return to, which makes them navigation rather than history. */}
+            {group.label === 'Work' && <ChatHistory />}
+          </Fragment>
         ))}
       </SidebarContent>
 
