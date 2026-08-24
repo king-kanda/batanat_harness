@@ -32,10 +32,8 @@ concurrency:
 env:
   IMAGE: docker.io/niloticking/batanat
   # Where the VPS keeps docker-compose.prod.yml, .env and the deploy markers.
-  # /srv is the FHS location for "site-specific data served by this system",
-  # which is what this is — but nothing depends on it. Set a `DEPLOY_DIR` repo
-  # variable to put it anywhere else.
-  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/srv/batanat' }}
+  # Override with a `DEPLOY_DIR` repo variable if it ever moves.
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/root' }}
 
 jobs:
   # Do not publish an image for a commit that does not pass CI. Reusing the
