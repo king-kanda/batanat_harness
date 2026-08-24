@@ -427,7 +427,6 @@ Redis and nginx belong on the host. The scheduler is a **separate service with
 and two schedulers means two tender sweeps and two sets of model calls.
 
 Full VM walkthrough — host packages, datastore binding, nginx, certbot, seeding, rollback:
-**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Observability
 
