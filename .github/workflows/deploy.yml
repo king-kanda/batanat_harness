@@ -42,6 +42,10 @@ jobs:
     name: Build ${{ matrix.service.name }}
     needs: guard
     runs-on: ubuntu-latest
+    outputs:
+      # Both matrix legs compute the same value; the last to finish wins and
+      # they agree, so which one wrote it does not matter.
+      short_sha: ${{ steps.meta.outputs.sha }}
 
     strategy:
       fail-fast: false
@@ -107,28 +111,137 @@ jobs:
           echo "${{ matrix.service.name }}: ${MB}MB"
           [ "$MB" -le 1200 ] || { echo "::error::image is ${MB}MB — check for CUDA/torch"; exit 1; }
 
-  summary:
-    name: What was published
+  # ---------------------------------------------------------------------------
+  # Deploy over SSH.
+  #
+  # The VPS holds no checkout. `docker-compose.prod.yml` is copied in on every
+  # deploy, so the topology comes from the commit being deployed rather than
+  # from whatever was cloned there months ago. `.env` stays on the VPS and is
+  # never in git or CI: it holds OAuth client secrets, and a deploy pipeline is
+  # not a place to put them.
+  #
+  # Images are pinned to the commit SHA rather than the moving tag. `:api` works
+  # today and means something else on the next run, which makes a rollback
+  # ambiguous at exactly the moment it must not be.
+  #
+  # Every remote block uses a QUOTED heredoc, so nothing expands on the runner.
+  # Values the remote needs are passed as environment variables on the ssh
+  # command line — the alternative is escaping `$` by hand across two shells,
+  # which is how a deploy script ends up silently substituting an empty string.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to VPS
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     steps:
-      - name: Write the rollback command down
+      - uses: actions/checkout@v4
+
+      - name: Authorise SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
-          SHA="${GITHUB_SHA::7}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # A pinned host key, not ssh-keyscan. Scanning on every run accepts
+          # whatever answers — trust-on-first-use, repeated forever — and this
+          # key has root on the box.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Copy the compose file
+        run: |
+          scp -i ~/.ssh/deploy_key -P "${{ secrets.VPS_PORT || 22 }}" \
+            docker-compose.prod.yml \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/batanat/docker-compose.prod.yml"
+
+      - name: Pull, migrate, restart
+        env:
+          SSH_TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SSH_PORT: ${{ secrets.VPS_PORT || 22 }}
+          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+          IMAGE_BASE: ${{ env.IMAGE }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET" \
+            "SHORT='$SHORT_SHA' IMAGE_BASE='$IMAGE_BASE' REGISTRY_TOKEN='$REGISTRY_TOKEN' bash -seuo pipefail" <<'REMOTE'
+          cd /srv/batanat
+
+          export API_IMAGE="$IMAGE_BASE:api-$SHORT"
+          export WEB_IMAGE="$IMAGE_BASE:web-$SHORT"
+
+          # What is running now, so a failed health check has somewhere to go
+          # back to rather than leaving the site on a broken build.
+          PREVIOUS="$(cat .deployed 2>/dev/null || true)"
+          echo "deploying $SHORT (previous: ${PREVIOUS:-none})"
+          printf '%s\n' "${PREVIOUS}" > .previous
+
+          printf '%s' "$REGISTRY_TOKEN" | docker login -u niloticking --password-stdin
+
+          docker compose -f docker-compose.prod.yml pull qdrant api web
+          # Once, to completion, before anything serves. If this fails nothing
+          # has been restarted and the old build is still up.
+          docker compose -f docker-compose.prod.yml run --rm migrate
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+          printf '%s\n' "$SHORT" > .deployed
+          REMOTE
+
+      - name: Wait for health, roll back if it never comes
+        env:
+          SSH_TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SSH_PORT: ${{ secrets.VPS_PORT || 22 }}
+          IMAGE_BASE: ${{ env.IMAGE }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET" \
+            "IMAGE_BASE='$IMAGE_BASE' bash -seuo pipefail" <<'REMOTE'
+          cd /srv/batanat
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
+              echo "healthy after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "API never became healthy"
+          docker compose -f docker-compose.prod.yml logs --tail 60 api || true
+
+          PREVIOUS="$(cat .previous 2>/dev/null || true)"
+          if [ -n "$PREVIOUS" ]; then
+            echo "rolling back to $PREVIOUS"
+            export API_IMAGE="$IMAGE_BASE:api-$PREVIOUS"
+            export WEB_IMAGE="$IMAGE_BASE:web-$PREVIOUS"
+            docker compose -f docker-compose.prod.yml up -d
+            printf '%s\n' "$PREVIOUS" > .deployed
+          else
+            echo "no previous deploy recorded — leaving it down rather than guessing"
+          fi
+          exit 1
+          REMOTE
+
+      - name: Summary
+        if: always()
+        env:
+          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+        run: |
           {
-            echo "### Published"
+            echo "### Deployed \`$SHORT_SHA\`"
             echo
-            echo '| image | rolling tag | immutable tag |'
-            echo '| --- | --- | --- |'
-            echo "| api | \`${{ env.IMAGE }}:api\` | \`${{ env.IMAGE }}:api-$SHA\` |"
-            echo "| web | \`${{ env.IMAGE }}:web\` | \`${{ env.IMAGE }}:web-$SHA\` |"
+            echo "- <https://batanat.okandasteven.me>"
+            echo "- <https://api.batanat.okandasteven.me/api/health>"
             echo
-            echo "The login screen shows \`web $SHA\`, so you can confirm from a browser"
-            echo "that the deploy actually landed rather than assuming it did."
+            echo "The login screen shows \`web $SHORT_SHA\`. Confirm from a browser that the"
+            echo "deploy landed rather than assuming it did — a mismatch between the web and"
+            echo "api lines means one half did not roll."
             echo
-            echo "Roll back with the immutable tag:"
+            echo "Manual rollback:"
             echo '```'
-            echo "docker compose pull && docker compose --profile app up -d"
-            echo "# or pin: ${{ env.IMAGE }}:api-<older-sha>"
+            echo "cd /srv/batanat"
+            echo "API_IMAGE=${{ env.IMAGE }}:api-<sha> WEB_IMAGE=${{ env.IMAGE }}:web-<sha> \\"
+            echo "  docker compose -f docker-compose.prod.yml up -d"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
