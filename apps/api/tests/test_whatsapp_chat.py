@@ -327,3 +327,133 @@ async def test_a_5xx_is_not_retried_as_text(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert sent is False
     assert len(client.payloads) == 1
+
+
+# --- the approve-by-reply loop -------------------------------------------------
+
+
+async def _linked(session, user):
+    """A paired handset. Without one the dispatcher has nobody to alert, which
+    is a silent no-op rather than a failure — correct in production, useless in
+    a test that means to assert what was sent."""
+    from datetime import UTC, datetime
+
+    from batanat_api.db.models import WhatsAppLink
+
+    link = WhatsAppLink(
+        user_id=user.id,
+        phone_e164=f"+2547{user.id.int % 100000000:08d}",
+        linked_at=datetime.now(UTC),
+        is_active=True,
+    )
+    session.add(link)
+    await session.flush()
+    return link
+
+
+async def _queued(session, user, company: str):
+    """One pending approval, as `propose_crm_entry` would leave it."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from batanat_api.db import enums as _enums
+    from batanat_api.db.models import Approval, Run
+
+    run = Run(
+        user_id=user.id,
+        trigger_type=_enums.TriggerType.gmail_push,
+        trust_level=_enums.TrustLevel.untrusted,
+        bound_tools=[],
+        status=_enums.RunStatus.succeeded,
+        started_at=datetime.now(UTC),
+    )
+    session.add(run)
+    await session.flush()
+
+    approval = Approval(
+        id=_uuid.uuid4(),
+        user_id=user.id,
+        run_id=run.id,
+        module="Leads",
+        operation="create",
+        proposed_payload={"Company": company},
+        diff={},
+        rationale="test",
+        expires_at=datetime.now(UTC) + timedelta(days=3),
+    )
+    session.add(approval)
+    await session.flush()
+    return approval
+
+
+async def test_the_alerted_number_is_the_number_approve_resolves_to(
+    session, user, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The invariant the whole loop rests on.
+
+    The position in the alert and the index `APPROVE n` looks up must come from
+    the same ordering. If they ever diverge, replying approves a different
+    record than the one you were asked about — and it is a CRM write, so being
+    approximately right is not a category that exists here.
+    """
+    from batanat_api.approvals.service import list_pending
+    from batanat_api.notifications import dispatcher
+
+    await _linked(session, user)
+    first = await _queued(session, user, "First Ltd")
+    second = await _queued(session, user, "Second Ltd")
+    await session.commit()
+
+    captured: list[list[str]] = []
+
+    async def fake_send(to, *, template, variables, fallback_text):
+        captured.append(variables)
+        return True, None
+
+    monkeypatch.setattr(dispatcher, "send_whatsapp_template", fake_send)
+
+    await dispatcher.dispatch_approval_request(session, user.id, approval_id=second.id)
+
+    alerted_position = int(captured[0][0])
+    pending = await list_pending(session, user.id)
+
+    assert pending[alerted_position - 1].id == second.id
+    assert pending[0].id == first.id  # oldest first, so #1 is the older one
+
+
+async def test_an_already_decided_approval_is_not_alerted(session, user) -> None:
+    """Between proposing and alerting it may have been approved in the web app."""
+    from batanat_api.db import enums as _enums
+    from batanat_api.notifications import dispatcher
+
+    approval = await _queued(session, user, "Gone Ltd")
+    approval.status = _enums.ApprovalStatus.approved
+    await session.commit()
+
+    sent = await dispatcher.dispatch_approval_request(session, user.id, approval_id=approval.id)
+    assert sent is False
+
+
+async def test_the_alert_names_the_record_not_just_a_number(
+    session, user, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ "Approve #2" with no subject is a request to approve something unseen."""
+    from batanat_api.notifications import dispatcher
+
+    await _linked(session, user)
+    approval = await _queued(session, user, "Rift Valley Solar Ltd")
+    await session.commit()
+
+    captured: dict = {}
+
+    async def fake_send(to, *, template, variables, fallback_text):
+        captured["variables"] = variables
+        captured["fallback"] = fallback_text
+        return True, None
+
+    monkeypatch.setattr(dispatcher, "send_whatsapp_template", fake_send)
+    await dispatcher.dispatch_approval_request(session, user.id, approval_id=approval.id)
+
+    assert "Rift Valley Solar Ltd" in captured["variables"]
+    assert "Rift Valley Solar Ltd" in captured["fallback"]
+    assert "APPROVE" in captured["fallback"]
