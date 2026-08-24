@@ -37,3 +37,6 @@ dist/
 .idea/
 .vscode/
 *.swp
+
+# Local helper script, not part of the project.
+batanat.sh
