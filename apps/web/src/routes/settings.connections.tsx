@@ -159,6 +159,27 @@ function ConnectionsPage() {
           )}
         </CardHeader>
 
+        {/* The 24-hour window is the single most surprising thing about this
+            channel: alerts look broken when they are simply outside it. Stated
+            here rather than left for someone to discover from a failed send. */}
+        <div className="px-4 pb-1">
+          <Alert>
+            <TriangleAlert className="size-4" aria-hidden />
+            <AlertDescription>
+              <span className="font-medium">Message the number before you expect alerts.</span>{' '}
+              WhatsApp only accepts free-form messages within 24 hours of your last message to the
+              business number. Outside that window Meta rejects the send, so a report or
+              opportunity alert will not arrive even though everything here is working. Sending
+              anything — even “hi” — reopens the window for another 24 hours.
+              <br />
+              <span className="text-muted-foreground">
+                The permanent fix is approved message templates, which are exempt from the window.
+                Until those are approved, treat WhatsApp as reply-only.
+              </span>
+            </AlertDescription>
+          </Alert>
+        </div>
+
         {testWhatsApp.data && (
           <div className="px-4 pb-1">
             <Alert variant={testWhatsApp.data.sent ? 'default' : 'destructive'}>

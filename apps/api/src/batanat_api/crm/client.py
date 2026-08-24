@@ -51,6 +51,41 @@ FIELD_WHITELIST: dict[str, frozenset[str]] = {
     "Notes": frozenset({"Note_Title", "Note_Content", "Parent_Id", "se_module"}),
 }
 
+#: Which fields a *read* returns. Separate from the write whitelist above,
+#: which only covers Leads and Notes because those are the only writable
+#: modules — reusing it for reads meant Contacts and Deals came back as bare
+#: ids, technically a successful call and useless to answer a question with.
+#:
+#: Still a whitelist rather than "everything": a CRM holds more about a person
+#: than the agent needs, and anything named here can end up quoted in a reply.
+READ_FIELDS: dict[str, frozenset[str]] = {
+    "Leads": FIELD_WHITELIST["Leads"] | frozenset({"Lead_Status", "Created_Time"}),
+    "Contacts": frozenset(
+        {
+            "First_Name",
+            "Last_Name",
+            "Email",
+            "Phone",
+            "Account_Name",
+            "Title",
+            "Mailing_City",
+            "Created_Time",
+        }
+    ),
+    "Deals": frozenset(
+        {
+            "Deal_Name",
+            "Stage",
+            "Amount",
+            "Closing_Date",
+            "Account_Name",
+            "Probability",
+            "Created_Time",
+        }
+    ),
+    "Notes": frozenset({"Note_Title", "Note_Content", "Created_Time"}),
+}
+
 
 class CrmError(RuntimeError):
     pass
@@ -90,46 +125,82 @@ class ZohoClient:
         self._session = session
         self._user_id = user_id
 
-    async def _auth(self) -> tuple[str, str]:
+    async def _auth(self, *, force: bool = False) -> tuple[str, str]:
         connection = await get_connection(self._session, self._user_id, enums.Provider.zoho)
         if not connection.api_domain:
             raise CrmError(
                 "This Zoho connection has no api_domain recorded. Reconnect it — the data "
                 "centre must come from the token response, never a guess."
             )
-        token = await get_valid_access_token(self._session, self._user_id, enums.Provider.zoho)
+        token = await get_valid_access_token(
+            self._session, self._user_id, enums.Provider.zoho, force=force
+        )
         return connection.api_domain.rstrip("/"), token
 
-    async def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
-        api_domain, token = await self._auth()
+    async def _send(self, method: str, path: str, api_domain: str, token: str, **kwargs):
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.request(
+            return await client.request(
                 method,
                 f"{api_domain}/crm/v6{path}",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
                 **kwargs,
             )
 
+    async def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
+        api_domain, token = await self._auth()
+        response = await self._send(method, path, api_domain, token, **kwargs)
+
+        # Same reasoning as the Gmail client: a 401 is evidence the stored token
+        # is dead, not that the grant is. Refresh once and retry before failing,
+        # or a token Zoho invalidated early strands every CRM read behind an
+        # error that tells the user to reconnect something that is fine.
+        if response.status_code == 401:
+            log.info("crm.token_rejected", detail="forcing a refresh and retrying once")
+            api_domain, token = await self._auth(force=True)
+            response = await self._send(method, path, api_domain, token, **kwargs)
+
         if response.status_code == 204:
             return {"data": []}
+        if response.status_code == 401:
+            raise CrmError(
+                "Zoho rejected the access token even after refreshing it. "
+                "Reconnect Zoho under Settings → Connections."
+            )
         if not response.is_success:
-            raise CrmError(f"Zoho {method} {path} returned {response.status_code}")
+            raise CrmError(
+                f"Zoho {method} {path} returned {response.status_code}: {response.text[:200]}"
+            )
         return response.json()
 
     async def search(self, module: str, criteria: str | None = None, limit: int = 20) -> list[dict]:
-        """COQL search. Read-only, and only against allowed modules."""
+        """Records from one module, read-only.
+
+        Uses the module endpoints rather than COQL. COQL is the nicer query
+        language, but it sits behind `ZohoCRM.coql.READ` — a scope this app
+        deliberately does not request, because it grants read across every
+        module including ones outside `READABLE_MODULES`. Asking for it to make
+        one query tidier would widen the grant well past what the agent needs.
+
+        So: a plain list when there is no filter, and Zoho's `/search` endpoint
+        when there is. Both are covered by the per-module read scopes already
+        held, which is why this works without reconnecting.
+        """
         if module not in READABLE_MODULES:
             raise ModuleNotAllowedError(
                 f"{module} is not readable. Allowed: {sorted(READABLE_MODULES)}."
             )
 
-        select_fields = ", ".join(sorted(FIELD_WHITELIST.get(module, {"id"})) or ["id"])
-        query = f"select {select_fields} from {module}"
-        if criteria:
-            query += f" where {criteria}"
-        query += f" limit {min(limit, 200)}"
+        # `fields` is required by Zoho and doubles as a read whitelist: anything
+        # not named here never leaves the CRM.
+        fields = ",".join(sorted(READ_FIELDS.get(module, {"id"})) or ["id"])
+        params: dict[str, Any] = {"fields": fields, "per_page": min(limit, 200)}
 
-        data = await self._request("POST", "/coql", json={"select_query": query})
+        if criteria:
+            params["criteria"] = criteria
+            data = await self._request("GET", f"/{module}/search", params=params)
+        else:
+            data = await self._request("GET", f"/{module}", params=params)
+
         return data.get("data", [])
 
     async def get(self, module: str, record_id: str) -> dict[str, Any] | None:

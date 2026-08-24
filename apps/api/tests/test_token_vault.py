@@ -184,8 +184,22 @@ def test_a_connection_with_no_access_token_needs_refresh() -> None:
     assert needs_refresh(_connection()) is True
 
 
-def test_no_advertised_expiry_is_treated_as_long_lived() -> None:
-    conn = _connection()
+def test_a_missing_expiry_on_an_oauth_provider_forces_a_refresh() -> None:
+    """Google and Zoho always state an expiry, so a null one means "we do not
+    know" — not "it lasts forever".
+
+    Trusting it cost a live debugging session: the vault served a dead Gmail
+    token indefinitely and every call 401'd with nothing to say why.
+    """
+    for provider in (enums.Provider.gmail, enums.Provider.zoho):
+        conn = _connection(provider=provider)
+        apply_token_set(conn, TokenSet(access_token=ACCESS, refresh_token=SECRET, expires_in=None))
+        assert needs_refresh(conn) is True, provider
+
+
+def test_a_missing_expiry_on_whatsapp_is_genuinely_long_lived() -> None:
+    """The system-user token has no expiry at all; refreshing it is meaningless."""
+    conn = _connection(provider=enums.Provider.whatsapp)
     apply_token_set(conn, TokenSet(access_token=ACCESS, refresh_token=SECRET, expires_in=None))
     assert needs_refresh(conn) is False
 
