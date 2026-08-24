@@ -154,6 +154,18 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
+      # Building an image proves it compiles, not that it starts. A crash at
+      # import time — a path assumption that only holds in the repo layout,
+      # a missing module — builds perfectly and dies on the first container.
+      # That reached production once; this is the step that stops it.
+      - name: Image actually starts
+        if: matrix.name == 'api'
+        run: |
+          docker run --rm batanat/api:ci python -c "import batanat_api.main; from batanat_api.config import get_settings, REPO_ROOT; print('config ok, repo_root =', REPO_ROOT)"
+          # The path alembic takes on every deploy: env.py imports config.
+          docker run --rm batanat/api:ci alembic --help > /dev/null
+          echo "api image starts"
+
       - name: Image runs and is not enormous
         run: |
           MB=$(( $(docker image inspect batanat/${{ matrix.name }}:ci --format '{{.Size}}') / 1024 / 1024 ))
