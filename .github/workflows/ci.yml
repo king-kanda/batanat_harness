@@ -10,8 +10,11 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # Deliberately not `push: branches: [main]`. deploy.yml calls this workflow
+  # as its `guard` job, so a push to main would start two identical runs — and
+  # because they share a concurrency group, one cancels the other with
+  # "Canceling since a higher priority waiting request exists", which reads
+  # like a failure. On main, CI runs once, as the thing gating the deploy.
   pull_request:
   workflow_call:
 
