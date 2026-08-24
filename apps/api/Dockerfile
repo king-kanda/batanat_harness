@@ -7,7 +7,7 @@
 # --frozen` installs exactly what the lockfile pins, and the lockfile has no
 # torch, no transformers, no nvidia-*. Embeddings come from fastembed, which is
 # ONNX on CPU. If a future dependency drags CUDA in, the image jumps by ~2GB and
-# `scripts/check-cpu-only.sh` fails in CI before it ever gets built.
+# the image-size guard in CI fails before it ever ships.
 
 # --- build -------------------------------------------------------------------
 

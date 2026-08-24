@@ -1,18 +1,9 @@
 name: batanat
 
-# Two ways to use this file.
-#
-#   docker compose up -d                    datastores only
-#   docker compose --profile app up -d      datastores + migrations + api + web
-#
-# The default is datastores only because that is what `make compose-up` has
-# always done, and because the development machine runs the API and web app
-# bare metal against services it already has. The `app` profile is the
-# deployment shape: everything, wired together, nothing on the host.
-#
-# Host ports are non-default on purpose: this machine already runs postgres (5432),
-# redis (6379) and mongo (27017) locally. Override any of them in .env if you prefer.
-# Container-internal ports are always the standard ones.
+# `docker compose up -d` starts the datastores only.
+# `docker compose --profile app up -d` adds migrations, api, scheduler and web.
+# Host ports are non-default because this machine already runs postgres, redis
+# and mongo locally; override them in .env.
 
 services:
   postgres:
@@ -41,8 +32,6 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      # The image is distroless-ish: no curl/wget. Qdrant ships a TCP-listening
-      # readiness endpoint, so probe the port with bash's /dev/tcp equivalent.
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6333' || exit 1"]
       interval: 10s
       timeout: 5s
@@ -78,11 +67,6 @@ services:
       timeout: 5s
       retries: 12
 
-  # --- application ------------------------------------------------------------
-  # Everything below is `--profile app`. Inside the network, services reach each
-  # other by name on standard ports, so these URLs ignore the host port mappings
-  # above entirely.
-
   migrate:
     profiles: ["app"]
     build:
@@ -92,18 +76,11 @@ services:
     restart: "no"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-batanat}:${POSTGRES_PASSWORD:-batanat}@postgres:5432/${POSTGRES_DB:-batanat}
-      # Not marked required here on purpose: compose interpolates every
-      # service in the file regardless of profile, so a `:?` guard would break
-      # plain `docker compose up` for the datastores. The API refuses to start
-      # without these anyway — see config.assert_safe_for_environment — and
-      # says so far more clearly than compose would.
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
-    # A separate one-shot step rather than an API entrypoint: with more than one
-    # replica, migrating on boot means racing migrations.
     command: ["alembic", "upgrade", "head"]
 
   api:
@@ -114,8 +91,6 @@ services:
     image: ${API_IMAGE:-batanat/api:local}
     restart: unless-stopped
     env_file:
-      # Everything in section 4 of .env.example — model keys, OAuth clients,
-      # SendGrid, WhatsApp. Absent values simply disable that capability.
       - .env
     environment:
       APP_ENV: ${APP_ENV:-production}
@@ -125,15 +100,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       MONGO_URL: mongodb://${MONGO_USER:-batanat}:${MONGO_PASSWORD:-batanat}@mongo:27017
       QDRANT_URL: http://qdrant:6333
-      # The API serves requests; the scheduler service below runs the cron jobs.
-      # Leaving this on here would mean every additional API replica starting
-      # its own scheduler, and every sweep and report firing once per replica.
       ENABLE_SCHEDULER: "false"
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     volumes:
-      # The ONNX embedding model, ~100MB, downloaded on first use. Without this
-      # every restart re-downloads it.
       - fastembed_cache:/home/batanat/.cache/fastembed
     depends_on:
       postgres:
@@ -147,9 +117,7 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # Exactly one of these. The cron jobs are not distributed-safe: two schedulers
-  # means two tender sweeps and two report emails, and the dedupe key on
-  # notifications stops the second *send* but not the second scrape.
+  # Exactly one of these: the cron jobs are not distributed-safe.
   scheduler:
     profiles: ["app"]
     build:
@@ -161,8 +129,6 @@ services:
       - .env
     environment:
       APP_ENV: ${APP_ENV:-production}
-      # Bound to loopback inside the container: this process exists to run jobs,
-      # and nothing should be routed to it.
       API_HOST: 127.0.0.1
       API_PORT: 8001
       DATABASE_URL: postgresql://${POSTGRES_USER:-batanat}:${POSTGRES_PASSWORD:-batanat}@postgres:5432/${POSTGRES_DB:-batanat}
@@ -186,9 +152,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Baked into the browser bundle at build time, not read at runtime —
-        # see the note at the top of apps/web/Dockerfile. Changing this needs a
-        # rebuild, not a restart.
+        # Baked into the browser bundle at build time; changing it needs a rebuild.
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     image: ${WEB_IMAGE:-batanat/web:local}
     restart: unless-stopped

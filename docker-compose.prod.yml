@@ -1,21 +1,7 @@
 # Production topology: app in Docker, datastores on the host.
 #
-# Deliberately a separate file rather than a profile on docker-compose.yml.
-# That file defines containerised Postgres, Mongo and Redis with no `profiles`
-# key, so they start on any `up` — on a VPS that already runs them as system
-# services, `--profile app up` would launch a second set and collide on every
-# port. Two files that each describe one whole topology beats one file with a
-# footgun in it.
-#
-# ---------------------------------------------------------------------------
-# EVERYTHING BINDS LOOPBACK. nginx is the only thing listening publicly.
-#
-# `network_mode: host` means containers share the host's network namespace, so
-# `ports:` does nothing and a process binding 0.0.0.0 is genuinely on the
-# public interface. Docker also writes its own iptables rules that bypass ufw,
-# so "the firewall will catch it" is not true for published container ports.
-# Binding 127.0.0.1 is what actually keeps these private.
-# ---------------------------------------------------------------------------
+# These use host networking, so `ports:` does nothing and every service must
+# bind 127.0.0.1 itself. nginx is the only thing listening publicly.
 
 services:
   qdrant:
@@ -23,8 +9,6 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      # Without this Qdrant binds 0.0.0.0 and, on host networking, is reachable
-      # from the internet with no authentication at all.
       QDRANT__SERVICE__HOST: 127.0.0.1
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
@@ -36,9 +20,6 @@ services:
       timeout: 5s
       retries: 12
 
-  # One-shot, to completion, before anything serves. Separate from the API
-  # entrypoint on purpose: migrating on boot with more than one replica means
-  # racing migrations.
   migrate:
     image: ${API_IMAGE:-docker.io/niloticking/batanat:api}
     restart: "no"
@@ -52,16 +33,10 @@ services:
     network_mode: host
     env_file: [.env]
     environment:
-      # nginx proxies to this. Binding 0.0.0.0 here would publish the API
-      # directly on :8000, bypassing TLS and the proxy entirely.
       API_HOST: 127.0.0.1
       API_PORT: 8000
-      # The scheduler service below owns the cron jobs. Leaving this on would
-      # mean every API replica running its own — two sweeps, two reports.
       ENABLE_SCHEDULER: "false"
     volumes:
-      # The ONNX embedding model, ~100MB, fetched on first use. Without this
-      # every restart re-downloads it.
       - fastembed_cache:/home/batanat/.cache/fastembed
     depends_on:
       qdrant:
@@ -69,9 +44,7 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # Exactly one of these, ever. The cron jobs are not distributed-safe: two
-  # schedulers means two tender sweeps and two sets of model calls. The dedupe
-  # key on notifications stops the second send, not the second scrape.
+  # Exactly one of these: the cron jobs are not distributed-safe.
   scheduler:
     image: ${API_IMAGE:-docker.io/niloticking/batanat:api}
     restart: unless-stopped
@@ -79,7 +52,6 @@ services:
     env_file: [.env]
     environment:
       API_HOST: 127.0.0.1
-      # Not 8000 — on host networking it would fight the API for the port.
       API_PORT: 8001
       ENABLE_SCHEDULER: "true"
     volumes:
