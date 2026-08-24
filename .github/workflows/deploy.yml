@@ -1,0 +1,134 @@
+# Build both images in parallel and push them to Docker Hub.
+#
+# The only publishing pipeline. `ci.yml` also builds the images but never
+# pushes — that job exists to catch a broken Dockerfile on the pull request
+# that broke it, not to produce anything.
+#
+# ---------------------------------------------------------------------------
+# TAGGING: every image gets a commit SHA tag as well as the moving one.
+#
+# A pipeline that only pushes `:api` has no way to roll back — the tag that was
+# good ten minutes ago now points at the build that broke. `:main-<sha>` is
+# immutable, so recovery is `docker run …:main-abc1234` rather than a revert
+# commit and a seven-minute rebuild while the site is down.
+# ---------------------------------------------------------------------------
+
+name: Deploy images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: "Public API origin to bake into the web bundle"
+        required: true
+        default: "https://batanat.okandasteven.me"
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: docker.io/niloticking/batanat
+
+jobs:
+  # Do not publish an image for a commit that does not pass CI. Reusing the
+  # workflow rather than trusting `workflow_run` keeps the dependency visible.
+  guard:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build ${{ matrix.service.name }}
+    needs: guard
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: api
+            tag: api
+            dockerfile: apps/api/Dockerfile
+            # Both images build from the repo root: the web build needs the
+            # workspace manifests and packages/schema, so a per-service context
+            # would not see them.
+            context: .
+
+          - name: web
+            tag: web
+            dockerfile: apps/web/Dockerfile
+            context: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: niloticking
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build metadata
+        id: meta
+        run: |
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "built=$(date -u +%Y-%m-%dT%H:%MZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push ${{ matrix.service.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ matrix.service.tag }}
+            ${{ env.IMAGE }}:${{ matrix.service.tag }}-${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=${{ matrix.service.tag }}
+          cache-to: type=gha,scope=${{ matrix.service.tag }},mode=max
+          # Only the web image reads these. VITE_API_URL is compiled into the
+          # browser bundle rather than read at runtime, so the image is tied to
+          # one API origin — see the header of apps/web/Dockerfile.
+          build-args: |
+            VITE_API_URL=${{ inputs.api_origin || vars.VITE_API_URL || 'https://batanat.okandasteven.me' }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.meta.outputs.built }}
+
+      # A CPU-only image that suddenly weighs 3GB has had CUDA pulled into it.
+      # The dependency guard in CI should catch that; this is the backstop for
+      # it arriving through a base image instead.
+      - name: Image size guard
+        run: |
+          IMAGE_REF="${{ env.IMAGE }}:${{ matrix.service.tag }}-${{ steps.meta.outputs.sha }}"
+          docker pull -q "$IMAGE_REF"
+          MB=$(( $(docker image inspect "$IMAGE_REF" --format '{{.Size}}') / 1024 / 1024 ))
+          echo "${{ matrix.service.name }}: ${MB}MB"
+          [ "$MB" -le 1200 ] || { echo "::error::image is ${MB}MB — check for CUDA/torch"; exit 1; }
+
+  summary:
+    name: What was published
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write the rollback command down
+        run: |
+          SHA="${GITHUB_SHA::7}"
+          {
+            echo "### Published"
+            echo
+            echo '| image | rolling tag | immutable tag |'
+            echo '| --- | --- | --- |'
+            echo "| api | \`${{ env.IMAGE }}:api\` | \`${{ env.IMAGE }}:api-$SHA\` |"
+            echo "| web | \`${{ env.IMAGE }}:web\` | \`${{ env.IMAGE }}:web-$SHA\` |"
+            echo
+            echo "The login screen shows \`web $SHA\`, so you can confirm from a browser"
+            echo "that the deploy actually landed rather than assuming it did."
+            echo
+            echo "Roll back with the immutable tag:"
+            echo '```'
+            echo "docker compose pull && docker compose --profile app up -d"
+            echo "# or pin: ${{ env.IMAGE }}:api-<older-sha>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

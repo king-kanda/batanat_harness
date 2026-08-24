@@ -125,6 +125,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       MONGO_URL: mongodb://${MONGO_USER:-batanat}:${MONGO_PASSWORD:-batanat}@mongo:27017
       QDRANT_URL: http://qdrant:6333
+      # The API serves requests; the scheduler service below runs the cron jobs.
+      # Leaving this on here would mean every additional API replica starting
+      # its own scheduler, and every sweep and report firing once per replica.
+      ENABLE_SCHEDULER: "false"
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     volumes:
@@ -139,6 +143,39 @@ services:
       mongo:
         condition: service_healthy
       qdrant:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Exactly one of these. The cron jobs are not distributed-safe: two schedulers
+  # means two tender sweeps and two report emails, and the dedupe key on
+  # notifications stops the second *send* but not the second scrape.
+  scheduler:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ${API_IMAGE:-batanat/api:local}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      # Bound to loopback inside the container: this process exists to run jobs,
+      # and nothing should be routed to it.
+      API_HOST: 127.0.0.1
+      API_PORT: 8001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-batanat}:${POSTGRES_PASSWORD:-batanat}@postgres:5432/${POSTGRES_DB:-batanat}
+      REDIS_URL: redis://redis:6379/0
+      MONGO_URL: mongodb://${MONGO_USER:-batanat}:${MONGO_PASSWORD:-batanat}@mongo:27017
+      QDRANT_URL: http://qdrant:6333
+      ENABLE_SCHEDULER: "true"
+    volumes:
+      - fastembed_cache:/home/batanat/.cache/fastembed
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
