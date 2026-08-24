@@ -23,7 +23,7 @@ on:
       api_origin:
         description: "Public API origin to bake into the web bundle"
         required: true
-        default: "https://batanat.okandasteven.me"
+        default: "https://api.batanat.okandasteven.me"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -92,7 +92,7 @@ jobs:
           # browser bundle rather than read at runtime, so the image is tied to
           # one API origin — see the header of apps/web/Dockerfile.
           build-args: |
-            VITE_API_URL=${{ inputs.api_origin || vars.VITE_API_URL || 'https://batanat.okandasteven.me' }}
+            VITE_API_URL=${{ inputs.api_origin || vars.VITE_API_URL || 'https://api.batanat.okandasteven.me' }}
             BUILD_SHA=${{ github.sha }}
             BUILD_TIME=${{ steps.meta.outputs.built }}
 
