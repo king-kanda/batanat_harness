@@ -40,3 +40,6 @@ dist/
 
 # Local helper script, not part of the project.
 batanat.sh
+
+# Production secrets. Never commit.
+prod.env
