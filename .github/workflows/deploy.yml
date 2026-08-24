@@ -187,10 +187,19 @@ jobs:
           docker compose -f docker-compose.prod.yml pull qdrant api web
           # Once, to completion, before anything serves. If this fails nothing
           # has been restarted and the old build is still up.
-          docker compose -f docker-compose.prod.yml run --rm migrate
+          #
+          # `-T` and `</dev/null` are load-bearing, not tidiness. This shell is
+          # `bash -s`, reading its own script from stdin. Without them `run`
+          # attaches to that stdin and consumes the rest of the script: the
+          # `up -d` below never executes, bash reaches EOF, and ssh exits 0 —
+          # a deploy that reports success having started nothing.
+          docker compose -f docker-compose.prod.yml run --rm -T migrate </dev/null
           docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
           printf '%s\n' "$SHORT" > .deployed
+          # Proof the script reached the end. If this line is missing from the
+          # log, something above ate stdin again.
+          echo "deploy script complete: $SHORT"
           REMOTE
 
       - name: Wait for health, roll back if it never comes
@@ -204,7 +213,10 @@ jobs:
             "IMAGE_BASE='$IMAGE_BASE' DEPLOY_DIR='$DEPLOY_DIR' bash -seuo pipefail" <<'REMOTE'
           cd "$DEPLOY_DIR"
 
-          for attempt in $(seq 1 30); do
+          # Two minutes, not one. The API image declares a 40s start period and
+          # the first boot on a fresh volume also fetches the ~100MB fastembed
+          # model, so a cold start is legitimately slower than a redeploy.
+          for attempt in $(seq 1 60); do
             if curl -fsS --max-time 5 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
               echo "healthy after ${attempt} attempt(s)"
               exit 0
