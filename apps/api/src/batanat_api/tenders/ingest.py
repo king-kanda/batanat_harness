@@ -29,6 +29,7 @@ from batanat_api.db import enums
 from batanat_api.db.models import Tender, TenderSourceRow
 from batanat_api.tenders.base import RawTender, SourceReport, content_hash
 from batanat_api.tenders.normalize import parse_date, parse_money
+from batanat_api.tenders.relevance import score_tender
 
 log = get_logger(__name__)
 
@@ -59,6 +60,11 @@ def to_row_values(
     reference = raw.reference_no
     digest = None if reference else content_hash(source_key, title, raw.closing_text)
 
+    # Scored on the way in, so the report can filter without a second pass and
+    # so a row is never in the store without a verdict against it. The model
+    # layer refines the ambiguous band afterwards; this is the cheap sieve.
+    verdict = score_tender(title, raw.entity, raw.category)
+
     return {
         "id": uuid.uuid4(),
         "source": source_key,
@@ -76,6 +82,8 @@ def to_row_values(
         "first_seen_at": now,
         "first_seen_run_id": run_id,
         "last_seen_at": now,
+        "relevance_score": verdict.score,
+        "relevance_reason": verdict.reason,
         "created_at": now,
         "updated_at": now,
     }
@@ -123,6 +131,10 @@ async def ingest_report(
                     "title": values["title"],
                     "closing_date": values["closing_date"],
                     "source_url": values["source_url"],
+                    # Rescored with the title, or an amended title would keep a
+                    # verdict about wording that no longer exists.
+                    "relevance_score": values["relevance_score"],
+                    "relevance_reason": values["relevance_reason"],
                 },
             )
             .returning(Tender.id, Tender.first_seen_at)

@@ -21,6 +21,7 @@ from batanat_api.db import enums
 from batanat_api.db.models import Run, SkillVersion, Tender
 from batanat_api.tenders.base import PoliteClient
 from batanat_api.tenders.ingest import ingest_report, record_source_health
+from batanat_api.tenders.relevance import RELEVANT_AT, refine_relevance
 from batanat_api.tenders.sources import build_sources_from_db
 from batanat_api.validation.validator import validate_tenders
 
@@ -98,6 +99,18 @@ async def run_tender_cycle(
         .all()
     )
 
+    # Second relevance layer: the keyword pass has already scored everything on
+    # the way in, and this asks the model only about the band it had no opinion
+    # on. The user's own criteria go with the question, so editing the Rules
+    # page changes what comes back.
+    await refine_relevance(session, candidates, skill_content=skill.content if skill else None)
+
+    # The store keeps everything; the report is the energy sector. A tender that
+    # was wrongly scored is still on the Opportunities screen behind "show
+    # everything", which it would not be if this filtered at ingest.
+    reportable = [t for t in candidates if (t.relevance_score or 0) >= RELEVANT_AT]
+    filtered_out = len(candidates) - len(reportable)
+
     outcome = validate_tenders(
         [
             {
@@ -111,7 +124,7 @@ async def run_tender_cycle(
                 "currency": t.currency,
                 "county": t.county,
             }
-            for t in candidates
+            for t in reportable
         ],
         fetched_urls=fetched_urls,
         now=now,
@@ -135,6 +148,7 @@ async def run_tender_cycle(
         "failed_sources": [s["source"] for s in source_summaries if not s["ok"]],
         "tenders": [t.model_dump(mode="json") for t in outcome.accepted],
         "validation": outcome.summary(),
+        "filtered_out": filtered_out,
         "rejections": [
             {"subject": r.subject, "rule": r.rule, "detail": r.detail} for r in outcome.rejections
         ],

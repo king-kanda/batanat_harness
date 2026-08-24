@@ -3,7 +3,6 @@ import { CircleCheck, ExternalLink, TriangleAlert, Unplug } from 'lucide-react'
 
 import { StatusBadge } from '#/components/status-badge'
 import { Button } from '#/components/ui/button'
-import { cn } from '#/lib/utils'
 
 export const PROVIDER_LABEL: Record<Provider, string> = {
   gmail: 'Gmail',
@@ -18,9 +17,14 @@ const PROVIDER_BLURB: Record<Provider, string> = {
 }
 
 /**
- * Gmail's refresh tokens die after ~7 days while the OAuth app is in Testing
- * mode, so expiry is not an edge case here — it is the weekly normal, and the
- * card has to say so before the user notices silence instead.
+ * What expiry means depends entirely on whether a refresh token is stored.
+ *
+ * Google access tokens are always one hour, so warning on "expires in under a
+ * day" put a permanent amber triangle on a healthy connection — alarming about
+ * the one thing the token vault handles by itself, while saying nothing about
+ * the thing that actually strands it. The real risk is the *refresh* token:
+ * Google expires those after ~7 days while the OAuth app is in Testing mode,
+ * and that surfaces as `needs_reconnect`.
  */
 function ExpiryNote({ connection }: { connection: ConnectionView }) {
   if (connection.needs_reconnect) {
@@ -33,13 +37,23 @@ function ExpiryNote({ connection }: { connection: ConnectionView }) {
   }
 
   const hours = connection.expires_in_hours
+
+  if (connection.can_refresh) {
+    return (
+      <span className="text-muted-foreground/80">
+        Renews automatically
+        {hours != null && hours > 0 && ` · next in ${hours < 1 ? '<1' : Math.round(hours)}h`}
+      </span>
+    )
+  }
+
   if (hours == null) return <span className="text-muted-foreground/80">No stated expiry</span>
 
-  const soon = hours < 24
+  // No refresh token: this one really is counting down to a manual reconnect.
   return (
-    <span className={cn(soon ? 'text-status-degraded' : 'text-muted-foreground/80')}>
-      {soon && <TriangleAlert className="mr-1 inline size-3" aria-hidden />}
-      Token expires in {hours < 1 ? '<1' : Math.round(hours)}h
+    <span className="text-status-degraded">
+      <TriangleAlert className="mr-1 inline size-3" aria-hidden />
+      Expires in {hours < 1 ? '<1' : Math.round(hours)}h — no refresh token
     </span>
   )
 }

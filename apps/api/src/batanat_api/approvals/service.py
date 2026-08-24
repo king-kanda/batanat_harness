@@ -245,3 +245,43 @@ def parse_decision_reply(body: str) -> tuple[str, int] | None:
     if index < 1:
         return None
     return decision, index
+
+
+async def apply_decision_reply(
+    session: AsyncSession, user_id: uuid.UUID, decision: str, index: int
+) -> str:
+    """Act on a parsed `APPROVE n` / `REJECT n`, and phrase the outcome.
+
+    The index is resolved against *this user's* pending queue, ordered the same
+    way the alert numbered it. A stale number therefore addresses whatever now
+    sits in that position, so the reply always names what was acted on — the
+    number alone is not enough to be sure, and a CRM write is not something to
+    be vague about.
+    """
+    pending = await list_pending(session, user_id)
+    if not pending:
+        return "Nothing is waiting for approval."
+
+    if index > len(pending):
+        return (
+            f"There {'is' if len(pending) == 1 else 'are'} only {len(pending)} item"
+            f"{'' if len(pending) == 1 else 's'} waiting, so there is no #{index}."
+        )
+
+    approval = pending[index - 1]
+    label = f"{approval.operation} {approval.module}"
+
+    try:
+        await decide_approval(
+            session,
+            approval.id,
+            user_id=user_id,
+            approve=decision == "approve",
+            actor="whatsapp",
+        )
+    except ApprovalStateError as exc:
+        return str(exc)
+
+    if decision == "approve":
+        return f"Approved #{index}: {label}. The write has been made."
+    return f"Rejected #{index}: {label}. Nothing was written."

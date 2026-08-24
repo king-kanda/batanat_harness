@@ -70,6 +70,17 @@ def build_report_email(report: dict[str, Any], *, permalink: str) -> str:
         f"<a href='{html.escape(permalink)}'>Open the full report</a></p>",
     ]
 
+    # Say what was withheld. A filter nobody can see is a filter nobody can
+    # correct, and "we found nothing" and "we hid 300 things" look identical
+    # from the outside.
+    withheld = report.get("filtered_out", 0)
+    if withheld:
+        parts.append(
+            "<p style='color:#888;margin:-8px 0 16px;font-size:12px'>"
+            f"{withheld} other tender(s) were outside the energy sector and are not listed. "
+            "They are on the Opportunities screen under “show everything”.</p>"
+        )
+
     if failed:
         parts.append(
             "<p style='background:#fff4e5;border:1px solid #f0c896;padding:8px 12px;"

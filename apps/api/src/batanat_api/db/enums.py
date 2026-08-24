@@ -114,3 +114,14 @@ class SourceHealth(StrEnum):
     ok = "ok"
     degraded = "degraded"  # falling back to search
     failing = "failing"
+
+
+class ChatRole(StrEnum):
+    """Who authored a stored chat message.
+
+    Only these two are persisted. Tool calls live in `tool_calls`, keyed to the
+    run, and are replayed from there rather than stored twice.
+    """
+
+    user = "user"
+    assistant = "assistant"

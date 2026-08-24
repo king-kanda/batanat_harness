@@ -313,3 +313,99 @@ def test_row_values_never_invent_a_value(session=None) -> None:
     assert values is not None
     assert values["estimated_value"] is None
     assert values["currency"] is None
+
+
+# --- falling back between candidate URLs ---------------------------------------
+
+
+class _ScriptedClient:
+    """Serves canned HTML per URL and records what was asked for."""
+
+    def __init__(self, pages: dict[str, str]):
+        self.pages = pages
+        self.asked: list[str] = []
+
+    async def fetch(self, source_key: str, url: str):
+        from datetime import UTC, datetime
+        from uuid import uuid4
+
+        from batanat_api.tenders.base import FetchResult, SourceUnavailableError
+
+        self.asked.append(url)
+        if url not in self.pages:
+            raise SourceUnavailableError(f"HTTP 404 from {url}")
+        return FetchResult(
+            source_key=source_key,
+            url=url,
+            html=self.pages[url],
+            fetched_at=datetime.now(UTC),
+            status_code=200,
+            snapshot_id=uuid4(),
+        )
+
+
+_TABLE = """
+<table>
+  <tr><th>Reference</th><th>Title</th><th>Closing</th></tr>
+  <tr><td>KP/1/2026</td><td>Supply of 33kV switchgear</td><td>25 August 2026</td></tr>
+</table>
+"""
+
+_NO_TABLE = "<html><body><h1>Open tenders</h1><p>Nothing at the moment.</p></body></html>"
+
+
+def _source(primary: str, *fallbacks: str):
+    from batanat_api.tenders.sources import ResilientTableSource, SourceConfig
+
+    return ResilientTableSource(
+        SourceConfig(
+            key="test",
+            name="Test",
+            entity="Test Entity",
+            listing_url=primary,
+            fallback_urls=tuple(fallbacks),
+        )
+    )
+
+
+async def test_a_page_that_loads_but_parses_to_nothing_falls_through() -> None:
+    """KETRACO's actual failure: 200 OK, no table, and the alternate never tried.
+
+    Falling back on fetch failure alone stopped at the first URL that merely
+    answered, which is why the source sat failing while a working page existed
+    one entry down the list.
+    """
+    client = _ScriptedClient({"https://x/open": _NO_TABLE, "https://x/closed": _TABLE})
+    report = await _source("https://x/open", "https://x/closed").collect(client)
+
+    assert report.ok
+    assert len(report.tenders) == 1
+    assert report.url == "https://x/closed"
+    assert client.asked == ["https://x/open", "https://x/closed"]
+
+
+async def test_the_first_candidate_wins_when_it_parses() -> None:
+    """No pointless second request when the primary is fine."""
+    client = _ScriptedClient({"https://x/open": _TABLE, "https://x/closed": _TABLE})
+    report = await _source("https://x/open", "https://x/closed").collect(client)
+
+    assert report.ok
+    assert client.asked == ["https://x/open"]
+
+
+async def test_a_404_still_falls_through() -> None:
+    client = _ScriptedClient({"https://x/new": _TABLE})
+    report = await _source("https://x/dead", "https://x/new").collect(client)
+
+    assert report.ok
+    assert report.url == "https://x/new"
+
+
+async def test_when_nothing_parses_the_failure_names_a_real_url() -> None:
+    """The snapshot has to be worth opening, so the error must point somewhere."""
+    client = _ScriptedClient({"https://x/open": _NO_TABLE, "https://x/closed": _NO_TABLE})
+    report = await _source("https://x/open", "https://x/closed").collect(client)
+
+    assert not report.ok
+    assert "https://x/open" in (report.error or "")
+    assert client.asked == ["https://x/open", "https://x/closed"]

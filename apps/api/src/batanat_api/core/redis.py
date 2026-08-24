@@ -1,18 +1,10 @@
 """One Redis client for the process.
 
-Every module here used to call `from_url(...)` per operation and `aclose()` it
-afterwards, which builds and tears down a connection pool for a single GET.
-Measured against a local Redis that is 25ms per operation instead of 2ms, and
-`sessions.resolve` does two of them on *every authenticated request* — so it
-dominated the cost of requests that should have been free. It also churns
-sockets, which shows up as TIME_WAIT accumulation long before it shows up as
-latency.
+Callers used to build and tear down a pool per operation — 25ms instead of 2ms
+against a local Redis, twice on every authenticated request. redis-py's async
+client is designed to be shared; one per process is the intended shape.
 
-redis-py's async client is built to be shared: it holds a pool, it is safe
-across concurrent tasks, and one instance per process is the intended shape.
-
-The client is bound to the event loop that first uses it, so `reset()` exists
-for tests, which run on their own loop.
+It binds to the event loop that first uses it, hence `reset()` for tests.
 """
 
 from __future__ import annotations

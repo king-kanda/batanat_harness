@@ -27,6 +27,7 @@ from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 
+from batanat_api.approvals import service as approvals
 from batanat_api.config import get_settings
 from batanat_api.connections import whatsapp as pairing
 from batanat_api.core.deps import SessionDep
@@ -129,13 +130,88 @@ async def handle_message(session: SessionDep, sender: str, message: dict[str, An
         await send_text(sender, UNPAIRED_REPLY)
         return
 
-    # Approval replies (APPROVE n / REJECT n) and trusted chat are wired in
-    # phases 6 and 7. Until then, acknowledge rather than ignore.
     log.info("whatsapp.inbound.received", user_id=str(user_id), length=len(body))
-    await send_text(
-        sender,
-        "Received. Replying to alerts with APPROVE or REJECT is enabled in a later phase.",
+
+    # Approvals are parsed, never reasoned about. `parse_decision_reply` accepts
+    # APPROVE/REJECT plus an index and nothing else, so the only way to commit a
+    # CRM write from WhatsApp is to answer a question we already asked. Routing
+    # this through the model instead would make "talk it into approving" a
+    # viable attack against whoever holds the handset.
+    decision = approvals.parse_decision_reply(body)
+    if decision is not None:
+        reply = await approvals.apply_decision_reply(session, user_id, *decision)
+        await send_reply(sender, reply)
+        return
+
+    await _chat(session, user_id, sender, body)
+
+
+async def _chat(session: SessionDep, user_id, sender: str, body: str) -> None:
+    """A conversational turn, on the same threads as the web chat.
+
+    Bound to `whatsapp_inbound`, which does **not** carry `approve_pending` —
+    see `agent/capabilities.py`. Chat and approval are deliberately different
+    doors: this one can read and propose, and cannot commit.
+    """
+    from batanat_api.agent import conversations
+    from batanat_api.agent.providers import get_model
+    from batanat_api.agent.runner import AgentRunner, KillSwitchEngagedError
+    from batanat_api.db import enums
+
+    model = get_model()
+    if not model.is_configured():
+        await send_reply(sender, "The assistant is not configured to answer right now.")
+        return
+
+    # Continue the user's current thread if there is a recent one — including
+    # a thread started in the web app. Same assistant, same conversation.
+    resumed = await conversations.latest_for_user(session, user_id)
+    conversation = await conversations.get_or_create(session, user_id, resumed, first=body)
+    window = await conversations.replay_window(session, conversation.id)
+
+    try:
+        result = await AgentRunner(model=model).run(
+            session,
+            user_id=user_id,
+            trigger=enums.TriggerType.whatsapp_inbound,
+            instruction=body,
+            history=window.messages,
+            trigger_ref=str(conversation.id),
+        )
+    except KillSwitchEngagedError:
+        await send_reply(sender, "The assistant is paused. Nothing was actioned.")
+        return
+
+    await conversations.record_turn(
+        session,
+        conversation,
+        user_message=body,
+        reply=result.output,
+        run_id=result.run_id,
+        reply_trust=enums.TrustTag.system_derived,
     )
+
+    await send_reply(sender, result.output or "No answer this time.")
+
+
+async def send_reply(to_e164: str, body: str) -> bool:
+    """Send a reply, split into phone-sized messages.
+
+    A wall of text is unreadable on a handset whether or not Meta accepts it,
+    so long answers go out as a short sequence rather than one block.
+    """
+    from batanat_api.notifications.chunking import split_for_whatsapp
+
+    parts = split_for_whatsapp(body)
+    if not parts:
+        return False
+
+    ok = True
+    for part in parts:
+        # Sequential, not gathered: WhatsApp orders by arrival, and a reply
+        # whose second half lands first is worse than a slow one.
+        ok = await send_text(to_e164, part) and ok
+    return ok
 
 
 async def send_text(to_e164: str, body: str) -> bool:

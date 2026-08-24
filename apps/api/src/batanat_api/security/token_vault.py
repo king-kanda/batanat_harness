@@ -145,12 +145,22 @@ def apply_token_set(
     connection.last_ok_at = now
 
 
+#: Providers whose tokens always carry an expiry. For these a null
+#: `access_expires_at` means "we do not know", not "it lasts forever", and the
+#: difference matters: assuming long-lived serves a dead token indefinitely and
+#: every call 401s with nothing to indicate why.
+EXPIRING_PROVIDERS = frozenset({enums.Provider.gmail, enums.Provider.zoho})
+
+
 def needs_refresh(connection: Connection, *, now: datetime | None = None) -> bool:
     """True if the access token is absent, or close enough to expiry to be unsafe."""
     if not connection.access_token_ciphertext:
         return True
     if connection.access_expires_at is None:
-        return False  # no expiry advertised; assume long-lived (e.g. WhatsApp)
+        # WhatsApp's system-user token genuinely has no expiry; OAuth providers
+        # always state one, so a missing value there is a gap to close, not a
+        # promise to trust.
+        return connection.provider in EXPIRING_PROVIDERS
     return connection.access_expires_at - (now or datetime.now(UTC)) <= REFRESH_MARGIN
 
 
@@ -177,12 +187,18 @@ async def get_valid_access_token(
     provider: enums.Provider,
     *,
     now: datetime | None = None,
+    force: bool = False,
 ) -> str:
-    """Return a usable access token, refreshing and persisting if necessary."""
+    """Return a usable access token, refreshing and persisting if necessary.
+
+    `force` skips the expiry check entirely. Callers use it after a provider has
+    rejected a token that we believed was still valid — the stored expiry is a
+    claim, and the 401 is evidence against it.
+    """
     now = now or datetime.now(UTC)
     connection = await get_connection(session, user_id, provider)
 
-    if not needs_refresh(connection, now=now):
+    if not force and not needs_refresh(connection, now=now):
         token = read_access_token(connection)
         if token:
             return token

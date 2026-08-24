@@ -1,18 +1,11 @@
 """Outbound email, via SendGrid.
 
-The Gmail connection is `gmail.readonly` **by design** — the agent reads the
-inbox and must never be able to send from it. So reports go out on a separate
-credential with a separate blast radius: if the SendGrid key leaks, an attacker
-can send email, but cannot read Martin's mail. Widening the Gmail scope would
-have collapsed both capabilities into one token.
+Not via Gmail: that connection is `gmail.readonly` by design, so a leaked
+SendGrid key can send mail but cannot read Martin's inbox.
 
-Recipients are configuration, not agent output. `REPORT_TO` and `REPORT_CC` are
-read from the environment and nothing in a run can change them — an agent that
-could choose its own recipients is an agent that can exfiltrate, and no prompt
-or scraped page should be able to influence where a report lands.
-
-Written on httpx rather than the `sendgrid` SDK: this is one POST, and the SDK
-carries a lot of surface we would never use.
+Recipients come from the user's row and nowhere else — no env fallback. An
+agent that could choose its own recipients could exfiltrate, so the only write
+path is the session-authed settings endpoint. The sender stays server config.
 """
 
 from __future__ import annotations
@@ -52,10 +45,10 @@ class Recipients:
 
 
 def parse_addresses(raw: str | None) -> tuple[list[str], list[str]]:
-    """Split a comma-separated env value into (valid, invalid) addresses.
+    """Split a comma-separated list into (valid, invalid).
 
-    One typo in `REPORT_CC` should not stop the report going to everyone else —
-    the bad address is logged and named in the delivery record instead.
+    Separated rather than rejected so one typo does not stop the report
+    reaching everyone else; the bad address is named in the delivery record.
     """
     valid: list[str] = []
     invalid: list[str] = []
@@ -70,18 +63,16 @@ def parse_addresses(raw: str | None) -> tuple[list[str], list[str]]:
     return list(dict.fromkeys(valid)), invalid
 
 
-def configured_recipients() -> Recipients:
-    """Who reports go to, from the environment. Never from a run."""
-    settings = get_settings()
-    to, bad_to = parse_addresses(settings.report_to)
-    cc, bad_cc = parse_addresses(settings.report_cc)
+def configured_recipients(to_raw: str | None, cc_raw: str | None = None) -> Recipients:
+    """Who reports go to, from the user's saved setting. Empty means empty."""
+    to, bad_to = parse_addresses(to_raw)
+    cc, bad_cc = parse_addresses(cc_raw)
 
     # An address on both lines is a TO; sending it twice would be noise.
     cc = [address for address in cc if address not in to]
 
-    # Not logged here: this is called several times per send (validation, then
-    # the send itself), and warning each time turns one typo into log noise.
-    # `send_email` reports it once, where it matters.
+    # Invalid addresses are not logged here — this runs twice per send, and
+    # `send_email` reports them once.
     return Recipients(to=to, cc=cc, invalid=bad_to + bad_cc)
 
 
@@ -90,7 +81,7 @@ def is_configured() -> bool:
     return bool(settings.sendgrid_api_key and settings.report_from_email)
 
 
-def configuration_problem() -> str | None:
+def configuration_problem(to_raw: str | None, cc_raw: str | None = None) -> str | None:
     """Why email cannot be sent, phrased for the UI. None when it can."""
     settings = get_settings()
 
@@ -99,31 +90,33 @@ def configuration_problem() -> str | None:
     if not settings.report_from_email:
         return "REPORT_FROM_EMAIL is not set. It must be a verified SendGrid sender."
 
-    recipients = configured_recipients()
+    recipients = configured_recipients(to_raw, cc_raw)
     if not recipients.deliverable:
-        return "REPORT_TO is empty, so there is nobody to send the report to."
+        return "No report recipients are set. Add one in Settings → Report recipients."
     return None
 
 
-async def send_email(*, subject: str, html: str) -> tuple[bool, str | None]:
-    """Send one HTML email to the configured recipients.
-
-    Returns `(sent, error)`. Never raises: a delivery failure is recorded
-    against the notification row and surfaced in the UI, and must not take down
-    the run that produced the report.
-    """
-    problem = configuration_problem()
+async def send_email(
+    *,
+    subject: str,
+    html: str,
+    to_raw: str | None,
+    cc_raw: str | None = None,
+) -> tuple[bool, str | None]:
+    """Send one HTML email. Returns `(sent, error)` and never raises — a
+    delivery failure must not take down the run that produced the report."""
+    problem = configuration_problem(to_raw, cc_raw)
     if problem:
         return False, problem
 
     settings = get_settings()
-    recipients = configured_recipients()
+    recipients = configured_recipients(to_raw, cc_raw)
 
     if recipients.invalid:
         log.warning(
             "email.invalid_recipients",
             count=len(recipients.invalid),
-            detail="Skipped; check REPORT_TO / REPORT_CC for typos.",
+            detail="Skipped; check the report recipient list for typos.",
         )
 
     personalization: dict[str, object] = {"to": [{"email": a} for a in recipients.to]}
@@ -157,8 +150,8 @@ async def send_email(*, subject: str, html: str) -> tuple[bool, str | None]:
     if response.status_code != 202:
         detail = response.text[:200] or f"HTTP {response.status_code}"
         log.error("email.rejected", status_code=response.status_code)
-        # 403 here is nearly always an unverified sender, which is worth saying
-        # outright rather than leaving someone to read SendGrid's response body.
+        # 403 is nearly always an unverified sender, and SendGrid's body does
+        # not say so.
         if response.status_code == 403:
             detail = (
                 f"SendGrid refused the sender {settings.report_from_email!r}. Verify it under "

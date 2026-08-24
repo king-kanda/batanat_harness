@@ -63,7 +63,6 @@ EXPECTED = {
             "web_search",
             "crm_read",
             "propose_crm_entry",
-            "approve_pending",
         },
     ),
     TriggerType.approval_callback: (TrustLevel.system, set()),
@@ -116,11 +115,18 @@ def test_only_web_chat_can_commit_a_write() -> None:
     assert committers == {TriggerType.web_chat}
 
 
-def test_whatsapp_can_approve_but_cannot_originate_a_write() -> None:
-    """Trusted, but only enough to approve something a human already queued."""
+def test_whatsapp_chat_cannot_reach_a_write_tool_at_all() -> None:
+    """WhatsApp is a chat interface, and chat does not commit.
+
+    Approving from WhatsApp still works, but never through the model: the
+    webhook parses `APPROVE n` with `approvals.parse_decision_reply` before a
+    run starts. Keeping both tools out of the schema is what separates "the
+    handset can answer a question we asked" from "anything that can reach the
+    model can talk it into a CRM write".
+    """
     tools = set(resolve_tool_names(TriggerType.whatsapp_inbound))
-    assert "approve_pending" in tools
     assert "commit_crm_write" not in tools
+    assert "approve_pending" not in tools
 
 
 def test_approval_callback_uses_no_model_and_no_tools() -> None:

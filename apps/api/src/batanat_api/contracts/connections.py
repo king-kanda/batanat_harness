@@ -29,6 +29,13 @@ class ConnectionView(BaseModel):
     expires_in_hours: float | None = Field(
         default=None, description="Negative once the access token has already expired."
     )
+    can_refresh: bool = Field(
+        default=False,
+        description=(
+            "A refresh token is stored, so the access token above renews itself. "
+            "Whether one exists, never the token."
+        ),
+    )
     needs_reconnect: bool = Field(
         default=False,
         description="True when only the user can restore this connection.",

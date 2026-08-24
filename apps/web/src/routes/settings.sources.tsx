@@ -109,11 +109,32 @@ function Sources() {
                   </div>
                 ))
               ) : (
-                <p className="text-muted-foreground">
-                  The scheduler is off. Set{' '}
-                  <span className="font-mono">ENABLE_SCHEDULER=true</span> to sweep tenders at
-                  11:00 and 17:00, and run maintenance at 02:00.
-                </p>
+                <div className="text-muted-foreground space-y-2">
+                  <p>
+                    The scheduler is off, so nothing runs on its own — sweeps and reports only
+                    happen when you press a button. Set{' '}
+                    <span className="font-mono">ENABLE_SCHEDULER=true</span> and restart the API to
+                    turn on:
+                  </p>
+                  <ul className="space-y-1 pl-4">
+                    <li className="list-disc">
+                      <span className="font-medium">Tender sweep</span> — 11:00 and 17:00 daily,
+                      each followed by a report
+                    </li>
+                    <li className="list-disc">
+                      <span className="font-medium">Weekly digest</span> — 08:00 Monday, looking
+                      back 72 hours
+                    </li>
+                    <li className="list-disc">
+                      <span className="font-medium">Maintenance</span> — 02:00 daily: token
+                      refresh, Gmail watch renewal, expiring old approvals
+                    </li>
+                  </ul>
+                  <p>
+                    Set your report recipients first, or the sweeps will run and have nowhere to
+                    deliver.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>

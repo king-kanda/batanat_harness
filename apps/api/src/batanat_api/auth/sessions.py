@@ -153,16 +153,22 @@ async def clear_attempts(email: str, address: str) -> None:
 
 
 def cookie_kwargs() -> dict[str, object]:
-    """Cookie flags. Secure is on unless we are plainly on localhost."""
+    """Cookie flags. Secure is on unless we are plainly on localhost.
+
+    `SameSite=None` forces Secure on regardless: browsers silently discard the
+    cookie without it, which looks like a working API and a broken login.
+    """
     settings = get_settings()
     public_url = settings.api_public_url
+    samesite = settings.session_cookie_samesite
+
+    on_localhost = public_url.startswith("http://localhost") or public_url.startswith("http://127.")
 
     return {
         "key": COOKIE_NAME,
         "httponly": True,
-        "samesite": "lax",
-        "secure": not public_url.startswith("http://localhost")
-        and not public_url.startswith("http://127."),
+        "samesite": samesite,
+        "secure": samesite == "none" or not on_localhost,
         "max_age": int(SESSION_TTL.total_seconds()),
         "path": "/",
     }

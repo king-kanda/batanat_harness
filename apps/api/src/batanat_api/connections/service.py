@@ -69,6 +69,10 @@ def to_public(connection: Connection) -> ConnectionView:
         scopes=list(connection.scopes or []),
         access_expires_at=expires_at,
         expires_in_hours=expires_in_hours,
+        # Whether a refresh token exists, never the token itself. Without this
+        # the UI cannot tell a one-hour token that renews itself from one that
+        # is about to strand the connection — and Google's are always one hour.
+        can_refresh=bool(connection.refresh_token_ciphertext),
         needs_reconnect=connection.status
         in (enums.ConnectionStatus.expired, enums.ConnectionStatus.revoked),
         api_domain=connection.api_domain,

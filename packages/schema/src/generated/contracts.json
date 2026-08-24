@@ -168,6 +168,53 @@
       "title": "AuthorizationUrl",
       "type": "object"
     },
+    "ChatMessageView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "trust_tag": {
+          "$ref": "#/$defs/TrustTag"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "content",
+        "trust_tag",
+        "created_at"
+      ],
+      "title": "ChatMessageView",
+      "type": "object"
+    },
     "ChatRequest": {
       "properties": {
         "message": {
@@ -175,6 +222,19 @@
           "minLength": 1,
           "title": "Message",
           "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
         }
       },
       "required": [
@@ -188,6 +248,11 @@
         "run_id": {
           "format": "uuid",
           "title": "Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "format": "uuid",
+          "title": "Conversation Id",
           "type": "string"
         },
         "reply": {
@@ -218,10 +283,21 @@
         },
         "status": {
           "$ref": "#/$defs/RunStatus"
+        },
+        "history_replayed": {
+          "default": 0,
+          "title": "History Replayed",
+          "type": "integer"
+        },
+        "history_dropped": {
+          "default": 0,
+          "title": "History Dropped",
+          "type": "integer"
         }
       },
       "required": [
         "run_id",
+        "conversation_id",
         "reply",
         "bound_tools",
         "status"
@@ -302,6 +378,12 @@
           "default": null,
           "description": "Negative once the access token has already expired.",
           "title": "Expires In Hours"
+        },
+        "can_refresh": {
+          "default": false,
+          "description": "A refresh token is stored, so the access token above renews itself. Whether one exists, never the token.",
+          "title": "Can Refresh",
+          "type": "boolean"
         },
         "needs_reconnect": {
           "default": false,
@@ -419,6 +501,61 @@
         "whatsapp_links"
       ],
       "title": "ConnectionsPage",
+      "type": "object"
+    },
+    "ConversationDetail": {
+      "properties": {
+        "conversation": {
+          "$ref": "#/$defs/ConversationView"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/ChatMessageView"
+          },
+          "title": "Messages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "conversation"
+      ],
+      "title": "ConversationDetail",
+      "type": "object"
+    },
+    "ConversationView": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "last_message_at": {
+          "format": "date-time",
+          "title": "Last Message At",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "message_count": {
+          "default": 0,
+          "title": "Message Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "last_message_at",
+        "created_at"
+      ],
+      "title": "ConversationView",
       "type": "object"
     },
     "DashboardView": {
@@ -1026,6 +1163,71 @@
         "configured"
       ],
       "title": "ProviderStatus",
+      "type": "object"
+    },
+    "ReportRecipientsUpdate": {
+      "properties": {
+        "to": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "To",
+          "type": "string"
+        },
+        "cc": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Cc",
+          "type": "string"
+        }
+      },
+      "title": "ReportRecipientsUpdate",
+      "type": "object"
+    },
+    "ReportRecipientsView": {
+      "description": "Where this user's reports are sent.\n\n`to`/`cc` are the raw strings as typed; `parsed_*` are what the next send\nwould actually use, shown back so a stray comma is visible before it costs\na report.",
+      "properties": {
+        "to": {
+          "title": "To",
+          "type": "string"
+        },
+        "cc": {
+          "title": "Cc",
+          "type": "string"
+        },
+        "parsed_to": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parsed To",
+          "type": "array"
+        },
+        "parsed_cc": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parsed Cc",
+          "type": "array"
+        },
+        "invalid": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Invalid",
+          "type": "array"
+        },
+        "deliverable": {
+          "title": "Deliverable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "to",
+        "cc",
+        "parsed_to",
+        "parsed_cc",
+        "deliverable"
+      ],
+      "title": "ReportRecipientsView",
       "type": "object"
     },
     "ReportView": {
@@ -1806,6 +2008,30 @@
           "title": "Is Closed",
           "type": "boolean"
         },
+        "relevance_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance Score"
+        },
+        "relevance_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance Reason"
+        },
         "feedback": {
           "anyOf": [
             {
@@ -1827,6 +2053,49 @@
         "first_seen_at"
       ],
       "title": "TenderView",
+      "type": "object"
+    },
+    "TestSendResult": {
+      "description": "What happened when a test message was pushed to a real channel.\n\n`error` carries the provider's own words rather than a status code \u2014 the\npoint of a test button is to tell you what to go and fix.",
+      "properties": {
+        "sent": {
+          "title": "Sent",
+          "type": "boolean"
+        },
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "sent",
+        "channel"
+      ],
+      "title": "TestSendResult",
       "type": "object"
     },
     "ToolCallView": {
@@ -1922,6 +2191,16 @@
         "system"
       ],
       "title": "TrustLevel",
+      "type": "string"
+    },
+    "TrustTag": {
+      "description": "Provenance of a memory row. Never render `untrusted_external` as instruction.",
+      "enum": [
+        "user_asserted",
+        "system_derived",
+        "untrusted_external"
+      ],
+      "title": "TrustTag",
       "type": "string"
     },
     "WhatsAppLinkView": {

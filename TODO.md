@@ -150,6 +150,24 @@ Create at <https://developers.facebook.com>.
 - [ ] Webhook configured at `https://<your-ngrok-domain>/api/webhooks/whatsapp`, with a verify
       token you choose → `WHATSAPP_VERIFY_TOKEN`, subscribed to the `messages` field.
 
+### What a paired number can do
+
+WhatsApp is a chat interface, not only an alert channel. A paired handset can ask
+the assistant anything it could ask in the web app, on the same conversation
+thread — a question asked at the desk can be followed up from the phone.
+
+Two things it deliberately cannot do:
+
+- **Commit a CRM write by talking.** `approve_pending` and `commit_crm_write` are
+  both absent from the WhatsApp tool schema. Approving still works, but only via
+  `APPROVE n` / `REJECT n`, which the webhook parses *before* the model runs. So
+  the gate is "answer a question we asked", not "convince the assistant".
+- **Act unattributed.** An unpaired number gets the generic reply and nothing else.
+
+Replies are split into short messages rather than one wall of text — see
+`notifications/chunking.py`. Free-form replies only leave the building inside
+Meta's 24-hour customer service window; proactive alerts still need a template.
+
 ### Templates to submit for approval — do this early, Meta's queue is slow
 
 I need three utility templates. Exact copy is in `docs/whatsapp-templates.md` once Phase 6 lands;
@@ -248,12 +266,17 @@ widening the Gmail scope would have collapsed both into one token.
       it also fixes deliverability). An unverified sender is refused with a 403,
       and the UI will say exactly that.
       → `REPORT_FROM_EMAIL`, optionally `REPORT_FROM_NAME` and `REPORT_REPLY_TO`
-- [ ] **Who gets the reports** → `REPORT_TO` (comma-separated)
-- [ ] **Who is CC'd** → `REPORT_CC` (comma-separated, optional)
+- [ ] **Who gets the reports** — not an env var. Sign in and set To (and
+      optionally Cc) under Settings → Report recipients. Stored per account, so
+      each user picks their own destinations.
 
-Recipients are configuration, deliberately: nothing the agent reads or produces can
-change where a report lands. An agent that could pick its own recipients could
-exfiltrate.
+Only the *sender* is configuration. Recipients live on the user row and there is
+no environment fallback — two places to look is one too many when the question is
+"where did this report go".
+
+Either way, nothing the agent reads or produces can change where a report lands:
+the settings endpoint is session-authed and sits outside the capability table. An
+agent that could pick its own recipients could exfiltrate.
 
 A typo in either list is skipped and named in the delivery record rather than
 blocking the whole send — but it *is* skipped, so check the Activity screen after
@@ -390,8 +413,10 @@ not something to trust.
 
 ### 14.5 With SendGrid (section 12) and the scheduler on
 
+- [ ] Set your addresses under Settings → Report recipients first — with none set
+      the send refuses outright, which is the intended behaviour, not a bug.
 - [ ] `ENABLE_SCHEDULER=true`, then wait for (or trigger) a sweep and confirm the
-      report arrives at every address in `REPORT_TO`.
+      report arrives at every address on that page.
 - [ ] Check the Activity screen for skipped recipients — a typo is skipped and named
       rather than failing the send.
 

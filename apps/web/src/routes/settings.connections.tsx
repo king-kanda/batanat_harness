@@ -1,11 +1,20 @@
 import type { PairingCodeView } from '@batanat/schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useSearch } from '@tanstack/react-router'
-import { Check, Copy, Loader2, Smartphone, TriangleAlert, X } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  Loader2,
+  SendHorizontal,
+  Smartphone,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { ConnectionCard, PROVIDER_LABEL } from '#/components/connection-card'
 import { StatusBadge } from '#/components/status-badge'
+import { Alert, AlertDescription } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
@@ -59,6 +68,8 @@ function ConnectionsPage() {
     },
     onError,
   })
+
+  const testWhatsApp = useMutation({ mutationFn: api.test.whatsapp })
 
   const unlink = useMutation({
     mutationFn: api.connections.unlinkNumber,
@@ -148,6 +159,18 @@ function ConnectionsPage() {
           )}
         </CardHeader>
 
+        {testWhatsApp.data && (
+          <div className="px-4 pb-1">
+            <Alert variant={testWhatsApp.data.sent ? 'default' : 'destructive'}>
+              <AlertDescription>
+                {testWhatsApp.data.sent
+                  ? `Test alert sent to ${testWhatsApp.data.target}.`
+                  : `Not sent: ${testWhatsApp.data.error}`}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {data && data.whatsapp_links.length > 0 && (
           <div>
             {data.whatsapp_links.map((link) => (
@@ -162,10 +185,27 @@ function ConnectionsPage() {
                     linked {new Date(link.linked_at).toLocaleDateString()}
                   </span>
                 </div>
-                <Button variant="destructive" onClick={() => unlink.mutate(link.id)}>
-                  <X className="size-3" aria-hidden />
-                  Unlink
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Sends for real. Display-name approval and template state
+                      only fail at send time, so nothing else proves delivery. */}
+                  <Button
+                    variant="outline"
+                    onClick={() => testWhatsApp.mutate()}
+                    disabled={testWhatsApp.isPending}
+                    title="Sends a real WhatsApp message to this number"
+                  >
+                    {testWhatsApp.isPending ? (
+                      <Loader2 className="size-3 animate-spin" aria-hidden />
+                    ) : (
+                      <SendHorizontal className="size-3" aria-hidden />
+                    )}
+                    Send test
+                  </Button>
+                  <Button variant="destructive" onClick={() => unlink.mutate(link.id)}>
+                    <X className="size-3" aria-hidden />
+                    Unlink
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

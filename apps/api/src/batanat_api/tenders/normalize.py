@@ -21,6 +21,15 @@ NAIROBI = ZoneInfo("Africa/Nairobi")
 
 # Ordered most-specific first. Day-first throughout: Kenyan sites write
 # 07/08/2026 meaning 7 August, never 8 July.
+#: Tried against the raw value, before any of the tidying below. JSON sources
+#: publish a full timestamp and the closing *time* matters when a deadline is
+#: 10:00 on the day — but TIME_TAIL would strip the trailing ":00" and leave an
+#: unparseable stub, so these have to be attempted first.
+ISO_FORMATS = (
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S",
+)
+
 DATE_FORMATS = (
     "%d %B %Y",
     "%d %b %Y",
@@ -77,6 +86,13 @@ def parse_date(value: str | None, *, now: datetime | None = None) -> datetime | 
     text = clean_text(value)
     if not text:
         return None
+
+    for fmt in ISO_FORMATS:
+        try:
+            parsed = datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+        return parsed.replace(tzinfo=NAIROBI).astimezone(UTC)
 
     text = ORDINAL.sub(r"\1", text)
     text = TIME_TAIL.sub("", text).strip().rstrip(",").strip()

@@ -1,13 +1,11 @@
 """Shared FastAPI dependencies.
 
 `get_current_user` resolves the session cookie to a user, or refuses with 401.
-Every operational endpoint already depended on this function, so wiring
-authentication in here protected all of them at once — no call site moved, which
-was the point of putting it behind a dependency in the first place.
+Every operational endpoint depends on it, so authentication is wired in one
+place.
 
-There is deliberately no fallback to "the first seeded user". A fallback that
-silently authenticates when the session is missing is the kind of convenience
-that survives into production and stops being convenient.
+There is deliberately no fallback to "the first seeded user" — silent
+authentication is the kind of convenience that survives into production.
 """
 
 from __future__ import annotations

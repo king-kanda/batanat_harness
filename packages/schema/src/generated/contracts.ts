@@ -31,16 +31,29 @@ export interface AuthorizationUrl {
   authorization_url: string;
 }
 
+export interface ChatMessageView {
+  id: string;
+  role: string;
+  content: string;
+  run_id?: string | null;
+  trust_tag: TrustTag;
+  created_at: string;
+}
+
 export interface ChatRequest {
   message: string;
+  conversation_id?: string | null;
 }
 
 export interface ChatResponse {
   run_id: string;
+  conversation_id: string;
   reply: string | null;
   bound_tools: string[];
   tool_calls?: Record<string, unknown>[];
   status: RunStatus;
+  history_replayed?: number;
+  history_dropped?: number;
 }
 
 export type ConnectionStatus = "connected" | "expired" | "error" | "revoked";
@@ -57,6 +70,8 @@ export interface ConnectionView {
   access_expires_at?: string | null;
   /** Negative once the access token has already expired. */
   expires_in_hours?: number | null;
+  /** A refresh token is stored, so the access token above renews itself. Whether one exists, never the token. */
+  can_refresh?: boolean;
   /** True when only the user can restore this connection. */
   needs_reconnect?: boolean;
   /** Zoho: the data-centre API host returned at authorisation. */
@@ -74,6 +89,19 @@ export interface ConnectionsPage {
   providers: ProviderStatus[];
   whatsapp_links: WhatsAppLinkView[];
   whatsapp_business_number?: string | null;
+}
+
+export interface ConversationDetail {
+  conversation: ConversationView;
+  messages?: ChatMessageView[];
+}
+
+export interface ConversationView {
+  id: string;
+  title: string;
+  last_message_at: string;
+  created_at: string;
+  message_count?: number;
 }
 
 /** Everything the dashboard needs, in one request. */
@@ -200,6 +228,21 @@ export interface ProviderStatus {
   /** False when its credentials are missing from .env. */
   configured: boolean;
   scopes?: string[];
+}
+
+export interface ReportRecipientsUpdate {
+  to?: string;
+  cc?: string;
+}
+
+/** Where this user's reports are sent. `to`/`cc` are the raw strings as typed; `parsed_*` are what the next send would actually use, shown back so a stray comma is visible before it costs a report. */
+export interface ReportRecipientsView {
+  to: string;
+  cc: string;
+  parsed_to: string[];
+  parsed_cc: string[];
+  invalid?: string[];
+  deliverable: boolean;
 }
 
 /** A tender report permalink page. */
@@ -338,7 +381,17 @@ export interface TenderView {
   county?: string | null;
   first_seen_at: string;
   is_closed?: boolean;
+  relevance_score?: number | null;
+  relevance_reason?: string | null;
   feedback?: string | null;
+}
+
+/** What happened when a test message was pushed to a real channel. `error` carries the provider's own words rather than a status code — the point of a test button is to tell you what to go and fix. */
+export interface TestSendResult {
+  sent: boolean;
+  channel: string;
+  target?: string | null;
+  error?: string | null;
 }
 
 /** One audited tool call, as the Activity screen shows it. */
@@ -357,6 +410,9 @@ export type TriggerType = "gmail_push" | "cron_tender" | "web_chat" | "whatsapp_
 
 /** Determines which tools a run is allowed to be handed. `untrusted` — the payload originates outside the system (an email body, a scraped page). Read tools and `propose_crm_entry` only. `trusted` — the payload originates from an authenticated human. `system` — internal machinery; usually no LLM at all. */
 export type TrustLevel = "untrusted" | "trusted" | "system";
+
+/** Provenance of a memory row. Never render `untrusted_external` as instruction. */
+export type TrustTag = "user_asserted" | "system_derived" | "untrusted_external";
 
 export interface WhatsAppLinkView {
   id: string;

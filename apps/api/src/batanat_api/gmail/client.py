@@ -56,24 +56,41 @@ class GmailClient:
         self._session = session
         self._user_id = user_id
 
-    async def _token(self) -> str:
-        return await get_valid_access_token(self._session, self._user_id, enums.Provider.gmail)
+    async def _token(self, *, force: bool = False) -> str:
+        return await get_valid_access_token(
+            self._session, self._user_id, enums.Provider.gmail, force=force
+        )
 
-    async def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
-        token = await self._token()
+    async def _send(self, method: str, path: str, token: str, **kwargs):
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.request(
+            return await client.request(
                 method,
                 f"{API_BASE}{path}",
                 headers={"Authorization": f"Bearer {token}"},
                 **kwargs,
             )
 
+    async def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
+        response = await self._send(method, path, await self._token(), **kwargs)
+
+        # A 401 is not proof that the grant is gone. Google can invalidate an
+        # access token before its stated expiry, and a stored expiry can be
+        # wrong for other reasons — after which the vault happily serves a dead
+        # token and every call 401s. Force one refresh and retry before telling
+        # the user to reconnect, because "reauthorize" is a dead end when a
+        # refresh would have fixed it silently.
+        if response.status_code == 401:
+            log.info("gmail.token_rejected", detail="forcing a refresh and retrying once")
+            response = await self._send(method, path, await self._token(force=True), **kwargs)
+
         if response.status_code in (404, 410):
             # Gmail returns these when a historyId has aged out of the window.
             raise HistoryExpiredError(f"Gmail returned {response.status_code} for {path}")
         if response.status_code == 401:
-            raise ReauthorizationRequiredError("Gmail rejected the access token.")
+            raise ReauthorizationRequiredError(
+                "Gmail rejected the access token even after refreshing it. "
+                "The grant has been revoked — reconnect Gmail under Settings → Connections."
+            )
         if not response.is_success:
             raise GmailError(f"Gmail {method} {path} returned {response.status_code}")
 

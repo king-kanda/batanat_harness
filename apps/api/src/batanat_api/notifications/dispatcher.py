@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from batanat_api.config import get_settings
 from batanat_api.core.logging import get_logger
 from batanat_api.db import enums
-from batanat_api.db.models import Notification, WhatsAppLink
+from batanat_api.db.models import Notification, User, WhatsAppLink
 from batanat_api.reports.builder import build_report_email, report_permalink
 
 log = get_logger(__name__)
@@ -115,7 +115,15 @@ async def dispatch_tender_report(
     if email_notification:
         from batanat_api.notifications.email_sender import configured_recipients
 
-        recipients = configured_recipients()
+        # Recorded on the notification row so the audit trail says where the
+        # report went, not merely that it went.
+        recipient_user = (
+            await session.execute(select(User).where(User.id == user_id))
+        ).scalar_one_or_none()
+        recipients = configured_recipients(
+            recipient_user.report_to if recipient_user else None,
+            recipient_user.report_cc if recipient_user else None,
+        )
         email_notification.target = recipients.describe()
 
         html = build_report_email(report, permalink=permalink)
@@ -275,9 +283,17 @@ async def send_whatsapp_template(
                 headers={"Authorization": f"Bearer {settings.whatsapp_access_token}"},
                 json=body,
             )
-            if response.status_code == 400:
-                # Almost always "template not found / not approved".
-                log.warning("whatsapp.template_rejected", template=template)
+            # Any 4xx here is the template being unusable — missing, unapproved,
+            # or the wrong language. Meta answers 404 for "does not exist in en"
+            # and 400 for most of the rest, and checking only 400 meant the
+            # fallback never ran for the commonest case of all: a template that
+            # has not been submitted yet.
+            if 400 <= response.status_code < 500:
+                log.warning(
+                    "whatsapp.template_rejected",
+                    template=template,
+                    status_code=response.status_code,
+                )
                 response = await client.post(
                     url,
                     headers={"Authorization": f"Bearer {settings.whatsapp_access_token}"},
@@ -292,22 +308,44 @@ async def send_whatsapp_template(
         return False, f"{type(exc).__name__}: {exc}"
 
     if not response.is_success:
-        return False, f"HTTP {response.status_code}"
+        return False, _meta_error(response)
     return True, None
+
+
+def _meta_error(response: Any) -> str:
+    """Meta's own message, not just the status code.
+
+    A bare "HTTP 400" sent us looking for an unapproved template when the real
+    answer was sitting in the body: the number needed display-name approval,
+    which no amount of template work would have fixed. Graph errors are
+    specific and actionable — pass them through.
+    """
+    try:
+        error = response.json().get("error", {})
+    except Exception:  # noqa: BLE001
+        return f"HTTP {response.status_code}: {response.text[:200]}"
+
+    message = error.get("message") or f"HTTP {response.status_code}"
+    details = (error.get("error_data") or {}).get("details")
+    return f"{message} ({details})" if details and details not in message else message
 
 
 async def send_email(
     *, user_id: uuid.UUID, subject: str, html: str, session: AsyncSession
 ) -> tuple[bool, str | None]:
-    """Send the report through SendGrid.
+    """Send the report through SendGrid, to the user's own saved recipients.
 
-    Deliberately not through Gmail: that connection is `gmail.readonly` by
-    design, so the agent can read the inbox and can never send from it. Reports
-    ride a separate credential with a separate blast radius.
-
-    Recipients come from `REPORT_TO` / `REPORT_CC` in the environment — never
-    from the agent, and never from anything it read.
+    Not through Gmail: that connection is `gmail.readonly` by design, so the
+    agent can read the inbox and never send from it.
     """
     from batanat_api.notifications import email_sender
 
-    return await email_sender.send_email(subject=subject, html=html)
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        # The run outlived the account. There is no default to fall back to,
+        # and inventing one would mail someone else's business elsewhere.
+        return False, "No such user, so there is nobody to send the report to."
+
+    return await email_sender.send_email(
+        subject=subject, html=html, to_raw=user.report_to, cc_raw=user.report_cc
+    )

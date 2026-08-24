@@ -122,6 +122,59 @@ async def run_classification(
         trigger_ref=f"history:{email_ids[0]}",
     )
 
+    await alert_on_opportunities(session, user_id, email_ids)
+
+
+async def alert_on_opportunities(
+    session: AsyncSession, user_id: uuid.UUID, email_ids: list[uuid.UUID]
+) -> int:
+    """Interrupt on WhatsApp for anything the run marked a high-priority opportunity.
+
+    Read back from the rows rather than from the model's reply: `classify_email`
+    validated the verdict and wrote it, so the database is the only place the
+    classification actually exists. Parsing it out of the response would be
+    trusting the model twice for one decision.
+
+    Only `high` interrupts. Medium and low wait for the digest — a channel that
+    buzzes for everything is a channel that gets muted, and then the one that
+    mattered is missed too.
+    """
+    from batanat_api.notifications.dispatcher import dispatch_opportunity_alert
+
+    rows = (
+        (
+            await session.execute(
+                select(Email).where(
+                    Email.id.in_(email_ids),
+                    Email.user_id == user_id,
+                    Email.category == enums.EmailCategory.opportunity,
+                    Email.priority == enums.Priority.high,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    sent = 0
+    for email in rows:
+        try:
+            if await dispatch_opportunity_alert(
+                session,
+                user_id,
+                email_id=email.id,
+                subject=email.subject,
+                sender=email.from_name or email.from_address,
+            ):
+                sent += 1
+        except Exception as exc:  # noqa: BLE001
+            # A failed alert must not lose the classification that earned it.
+            log.warning("gmail.alert_failed", email_id=str(email.id), error=type(exc).__name__)
+
+    if rows:
+        log.info("gmail.opportunity_alerts", candidates=len(rows), sent=sent)
+    return sent
+
 
 async def sync_now(session: AsyncSession, user_id: uuid.UUID) -> dict:
     """The manual 'Sync now' button."""

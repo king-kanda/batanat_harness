@@ -78,7 +78,7 @@ class ZohoOAuthProvider(OAuthProvider):
         return (
             settings.zoho_client_id or "",
             settings.zoho_client_secret or "",
-            settings.zoho_redirect_uri,
+            settings.redirect_uri_for("zoho"),
             settings.zoho_accounts_url.rstrip("/"),
         )
 
