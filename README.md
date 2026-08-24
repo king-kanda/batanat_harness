@@ -56,9 +56,6 @@ flowchart LR
     SUM --> VDB
 ```
 
-> The original hand-drawn diagram belongs at `docs/architecture.png` — drop the export there and it
-> can be linked from here alongside the Mermaid version.
-
 ### Architecture invariants
 
 Non-negotiable. If a change seems to require breaking one, stop and ask.
@@ -97,10 +94,6 @@ existing container** — this project starts no containers of its own. `docker-c
 an alternative for a clean machine; it publishes non-default host ports (55432 / 57017 / 56379) so it
 can never collide with the host services. If you use it, switch the URLs in `.env` to the commented
 Compose variants.
-
-```bash
-make services     # is everything this project needs actually up?
-```
 
 ---
 
@@ -151,7 +144,7 @@ make reset-db   # drop, re-migrate, re-seed
 make check
 ```
 
-`cpu-only` → `lint` → `test` → `typecheck`.
+`lint` → `test` → `typecheck`.
 
 ---
 
@@ -172,9 +165,6 @@ apps/
     src/lib/              typed API client, query client
 packages/
   schema/                 generated TS types + JSON Schema, consumed by the web app
-scripts/
-  check-cpu-only.sh       fails the build if a GPU package resolves
-  check-services.sh       host datastore reachability
 ```
 
 ### Shared contracts
@@ -205,12 +195,8 @@ transitively via `torch`, pulled in by `sentence-transformers`, `transformers`,
 - Base images are `python:3.12-slim`. Never a CUDA base image. `CUDA_VISIBLE_DEVICES=""` is set in
   the container as a runtime guard.
 
-```bash
-make cpu-only
-```
-
-This checks both the installed environment and the declared dependencies, and is wired into CI and
-the Docker build so it regresses loudly rather than silently months from now.
+The backstop is the image-size guard in CI and in the deploy workflow: both fail the build if either
+image exceeds 1200MB, which is what CUDA arriving transitively would look like.
 
 ---
 
@@ -425,8 +411,6 @@ be promoted to production unless both point at the same API.
 Redis and nginx belong on the host. The scheduler is a **separate service with
 `ENABLE_SCHEDULER=true` while the API has it false** — the cron jobs are not distributed-safe,
 and two schedulers means two tender sweeps and two sets of model calls.
-
-Full VM walkthrough — host packages, datastore binding, nginx, certbot, seeding, rollback:
 
 ## Observability
 

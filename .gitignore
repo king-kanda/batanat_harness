@@ -38,8 +38,10 @@ dist/
 .vscode/
 *.swp
 
-# Local helper script, not part of the project.
+# Local working notes and helper script, not part of the project.
 batanat.sh
+PRD.md
+TODO.md
 
 # Production secrets. Never commit.
 prod.env

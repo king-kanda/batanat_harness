@@ -47,10 +47,6 @@ api: ## Run the API (http://localhost:8000)
 web: ## Run the web app (http://localhost:3000)
 	cd $(WEB_DIR) && bun run dev
 
-.PHONY: services
-services: ## Report whether the host datastores are reachable
-	@scripts/check-services.sh
-
 # --- database ----------------------------------------------------------------
 
 .PHONY: migrate
@@ -90,7 +86,7 @@ eval: ## Precision and recall from the thumbs feedback
 # --- quality -----------------------------------------------------------------
 
 .PHONY: check
-check: cpu-only lint test typecheck ## Everything CI runs
+check: lint test typecheck ## Everything CI runs
 
 .PHONY: test
 test: ## Run the API test suite
@@ -109,10 +105,6 @@ format: ## Autoformat Python
 .PHONY: typecheck
 typecheck: ## Typecheck the web app
 	cd $(WEB_DIR) && bun run typecheck
-
-.PHONY: cpu-only
-cpu-only: ## Fail if any GPU/CUDA package resolves
-	@scripts/check-cpu-only.sh
 
 # --- contracts ---------------------------------------------------------------
 

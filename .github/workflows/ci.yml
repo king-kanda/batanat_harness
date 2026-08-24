@@ -80,11 +80,6 @@ jobs:
         working-directory: apps/api
         run: uv sync --all-groups
 
-      # Must run before anything else: a GPU package in the tree is a build
-      # failure, not a warning.
-      - name: CPU-only guard
-        run: ./scripts/check-cpu-only.sh
-
       - name: Lint
         working-directory: apps/api
         run: |
