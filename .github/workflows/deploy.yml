@@ -31,6 +31,11 @@ concurrency:
 
 env:
   IMAGE: docker.io/niloticking/batanat
+  # Where the VPS keeps docker-compose.prod.yml, .env and the deploy markers.
+  # /srv is the FHS location for "site-specific data served by this system",
+  # which is what this is — but nothing depends on it. Set a `DEPLOY_DIR` repo
+  # variable to put it anywhere else.
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/srv/batanat' }}
 
 jobs:
   # Do not publish an image for a commit that does not pass CI. Reusing the
@@ -155,7 +160,7 @@ jobs:
         run: |
           scp -i ~/.ssh/deploy_key -P "${{ secrets.VPS_PORT || 22 }}" \
             docker-compose.prod.yml \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/batanat/docker-compose.prod.yml"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_DIR }}/docker-compose.prod.yml"
 
       - name: Pull, migrate, restart
         env:
@@ -164,10 +169,11 @@ jobs:
           SHORT_SHA: ${{ needs.build.outputs.short_sha }}
           IMAGE_BASE: ${{ env.IMAGE }}
           REGISTRY_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         run: |
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET" \
-            "SHORT='$SHORT_SHA' IMAGE_BASE='$IMAGE_BASE' REGISTRY_TOKEN='$REGISTRY_TOKEN' bash -seuo pipefail" <<'REMOTE'
-          cd /srv/batanat
+            "SHORT='$SHORT_SHA' IMAGE_BASE='$IMAGE_BASE' REGISTRY_TOKEN='$REGISTRY_TOKEN' DEPLOY_DIR='$DEPLOY_DIR' bash -seuo pipefail" <<'REMOTE'
+          cd "$DEPLOY_DIR"
 
           export API_IMAGE="$IMAGE_BASE:api-$SHORT"
           export WEB_IMAGE="$IMAGE_BASE:web-$SHORT"
@@ -194,10 +200,11 @@ jobs:
           SSH_TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           SSH_PORT: ${{ secrets.VPS_PORT || 22 }}
           IMAGE_BASE: ${{ env.IMAGE }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         run: |
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET" \
-            "IMAGE_BASE='$IMAGE_BASE' bash -seuo pipefail" <<'REMOTE'
-          cd /srv/batanat
+            "IMAGE_BASE='$IMAGE_BASE' DEPLOY_DIR='$DEPLOY_DIR' bash -seuo pipefail" <<'REMOTE'
+          cd "$DEPLOY_DIR"
 
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 5 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
@@ -240,7 +247,7 @@ jobs:
             echo
             echo "Manual rollback:"
             echo '```'
-            echo "cd /srv/batanat"
+            echo "cd ${{ env.DEPLOY_DIR }}"
             echo "API_IMAGE=${{ env.IMAGE }}:api-<sha> WEB_IMAGE=${{ env.IMAGE }}:web-<sha> \\"
             echo "  docker compose -f docker-compose.prod.yml up -d"
             echo '```'
