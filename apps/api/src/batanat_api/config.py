@@ -13,7 +13,26 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+def _repo_root() -> Path:
+    """Where to look for `.env`, in a way that survives being installed.
+
+    In the repo this file is `apps/api/src/batanat_api/config.py`, so the root
+    is four levels up. In the image it is `/app/src/batanat_api/config.py` —
+    two levels shallower — and a hardcoded `parents[4]` raised IndexError at
+    *import* time, so every container died before it could log a reason.
+
+    Walk up looking for a marker instead, and fall back to the highest real
+    parent. `.env` is a local development convenience; a container gets its
+    configuration from the environment, so not finding one is not an error.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / ".env").is_file() or (parent / ".git").exists():
+            return parent
+    return here.parents[-1]
+
+
+REPO_ROOT = _repo_root()
 
 
 class Settings(BaseSettings):
