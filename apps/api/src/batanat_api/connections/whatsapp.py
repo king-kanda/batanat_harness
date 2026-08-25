@@ -216,7 +216,18 @@ async def redeem_code(
         .first()
     )
 
-    if existing_link is not None and existing_link.user_id != pairing_code.user_id:
+    # Only an *active* link elsewhere is a conflict. A row left inactive belongs
+    # to nobody: the account that held it released it, and refusing on that
+    # basis reserved the number forever — `phone_e164` is globally unique, so
+    # one dead row makes a handset unpairable by every account including the
+    # one that owned it. Worse, the sender saw two answers to the same
+    # question: pairing said "already linked", chat said "not linked", because
+    # `resolve_user` filters on `is_active` and this check did not.
+    if (
+        existing_link is not None
+        and existing_link.is_active
+        and existing_link.user_id != pairing_code.user_id
+    ):
         # Never silently rebind: this would hand another user's alerts to this handset.
         log.warning("whatsapp.pairing.number_belongs_to_another_user", phone=_mask(phone_e164))
         return PairingResult(
@@ -226,7 +237,13 @@ async def redeem_code(
         )
 
     if existing_link is not None:
+        # Reassign rather than insert. The unique constraint allows exactly one
+        # row per number, which is also what makes `resolve_user`'s unordered
+        # `.first()` safe — a second row for the same handset could route a
+        # message to the wrong account.
+        existing_link.user_id = pairing_code.user_id
         existing_link.is_active = True
+        existing_link.linked_at = now  # a new binding, not a resumption of the old one
         existing_link.last_seen_at = now
     else:
         session.add(
@@ -284,9 +301,16 @@ async def unlink(session: AsyncSession, user_id: uuid.UUID, link_id: uuid.UUID) 
     )
     if link is None:
         raise LookupError("No such linked number.")
-    link.is_active = False
+
+    # Deleted, not deactivated. `phone_e164` is globally unique, so a retained
+    # row holds the number hostage: nobody can pair that handset again, and the
+    # soft-delete bought no audit trail worth having — re-pairing overwrites
+    # `user_id` anyway, and `notifications` is the actual record of what was
+    # sent where. Nothing references this table by foreign key.
+    phone = link.phone_e164
+    await session.delete(link)
     await session.flush()
-    log.info("whatsapp.pairing.unlinked", user_id=str(user_id), phone=_mask(link.phone_e164))
+    log.info("whatsapp.pairing.unlinked", user_id=str(user_id), phone=_mask(phone))
 
 
 def _mask(phone: str) -> str:

@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Body, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
+from starlette.background import BackgroundTask
 
 from batanat_api.config import get_settings
 from batanat_api.connections import service, state, whatsapp
@@ -131,15 +132,41 @@ async def callback(
         setup = await prepare_mailbox(session, oauth_state.user_id)
         for problem in setup.problems:
             log.warning("connection.callback.setup_incomplete", provider="gmail", detail=problem)
+
+        # Classifying runs *after* the response, on its own session. The import
+        # above is a handful of HTTP calls; classifying is a model call per 20
+        # messages, which would leave the browser on a blank redirect for
+        # minutes. The session and its transaction belong to this request, so a
+        # task that outlives it must open its own.
+        classify = BackgroundTask(_classify_after_connect, oauth_state.user_id)
+
         if setup.problems:
             # Connected, but not fully working. Say which, rather than showing
             # a success screen over a mailbox that will never receive anything.
             return RedirectResponse(
                 _settings_url(connected=provider.value, error="; ".join(setup.problems)),
                 status_code=302,
+                background=classify,
             )
+        return RedirectResponse(
+            _settings_url(connected=provider.value), status_code=302, background=classify
+        )
 
     return RedirectResponse(_settings_url(connected=provider.value), status_code=302)
+
+
+async def _classify_after_connect(user_id: uuid.UUID) -> None:
+    """Give the just-imported mail a verdict. Never raises — the account is
+    already connected, and the nightly sweep retries whatever this misses."""
+    from batanat_api.db.session import session_scope
+    from batanat_api.triggers.gmail_trigger import classify_pending
+
+    try:
+        async with session_scope() as session:
+            count = await classify_pending(session, user_id)
+        log.info("connection.callback.backlog_classified", count=count)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("connection.callback.classify_failed", error_type=type(exc).__name__)
 
 
 @router.delete("/{connection_id}", response_model=DisconnectResult, summary="Disconnect")
