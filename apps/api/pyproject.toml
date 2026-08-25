@@ -26,6 +26,10 @@ dependencies = [
     "lxml>=6.1.2",
     "apscheduler>=3.11.3",
     "pypdf>=6.16.1",
+    # Verifies the OIDC token on Gmail's Pub/Sub pushes. The `requests` extra is
+    # required, not optional: `verify_oidc_token` builds a
+    # `google.auth.transport.requests.Request` to fetch Google's signing certs.
+    "google-auth[requests]>=2.35",
 ]
 
 # NOTE: this project is CPU-only. Never add torch, sentence-transformers,
