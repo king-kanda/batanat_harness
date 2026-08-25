@@ -176,50 +176,65 @@ function Home() {
     navigate({ search: {}, replace: true })
   }
 
+  const started = turns.length > 0
+
   return (
+    // One viewport tall, in three bands: the thread's header, the only
+    // scrolling region on the screen, and the composer pinned under it. The box
+    // you type in must not drift down the page as the conversation grows.
     <div
       className={cn(
-        'mx-auto flex w-full max-w-2xl flex-col gap-6',
-        // Empty state sits in the middle of the viewport; once there is a
-        // transcript it anchors to the top so replies grow downward.
-        turns.length === 0 && 'min-h-[calc(100svh-9rem)] justify-center pb-16',
+        'mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col gap-4',
+        // Nothing to scroll yet, so the greeting and the composer sit together
+        // in the middle. pb-16 is the optical offset that keeps them off the
+        // floor of the viewport.
+        !started && 'justify-center pb-16',
       )}
     >
-      {greetingMounted && (
-        <div
-          className={cn(
-            'overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-            engaged
-              ? 'pointer-events-none max-h-0 -translate-y-2 opacity-0'
-              : 'max-h-96 translate-y-0 opacity-100',
-          )}
-          aria-hidden={engaged}
-        >
-          <Greeting />
+      {started && (
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            Conversation
+          </span>
+          <span className="bg-border h-px flex-1" aria-hidden />
+          <Button variant="ghost" size="sm" onClick={startNewThread} disabled={send.isPending}>
+            <SquarePen className="size-3.5" aria-hidden />
+            New chat
+          </Button>
         </div>
       )}
 
-      {restoring && turns.length === 0 && (
-        <p className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Loader2 className="size-3.5 animate-spin" aria-hidden /> picking up where you left off…
-        </p>
-      )}
-
-      {turns.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-              Conversation
-            </span>
-            <span className="bg-border h-px flex-1" aria-hidden />
-            <Button variant="ghost" size="sm" onClick={startNewThread} disabled={send.isPending}>
-              <SquarePen className="size-3.5" aria-hidden />
-              New chat
-            </Button>
+      <div
+        className={cn(
+          'flex flex-col gap-6',
+          // overscroll-contain: reaching the top of the transcript should stop
+          // there, not hand the gesture to whatever is behind it.
+          started ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2' : 'shrink-0',
+        )}
+      >
+        {greetingMounted && (
+          <div
+            className={cn(
+              'overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+              engaged
+                ? 'pointer-events-none max-h-0 -translate-y-2 opacity-0'
+                : 'max-h-96 translate-y-0 opacity-100',
+            )}
+            aria-hidden={engaged}
+          >
+            <Greeting />
           </div>
+        )}
 
-          {/* A log rather than a list: replies arrive without the reader asking,
-              so a screen reader should announce them where they land. */}
+        {restoring && !started && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="size-3.5 animate-spin" aria-hidden /> picking up where you left off…
+          </p>
+        )}
+
+        {started && (
+          /* A log rather than a list: replies arrive without the reader asking,
+             so a screen reader should announce them where they land. */
           <div className="space-y-5" role="log" aria-live="polite" aria-label="Conversation">
             {turns.map((turn, index) => (
               <ChatMessage key={index} role={turn.role} text={turn.text} tools={turn.tools} />
@@ -227,50 +242,53 @@ function Home() {
             {send.isPending && <ChatThinking />}
             <div ref={endRef} aria-hidden />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {error && (
-        <div className="border-status-down/30 bg-status-down/10 text-status-down flex items-start gap-2 rounded-lg border px-3 py-2 text-xs">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          {error}
-        </div>
-      )}
+      {/* Pinned: everything you act with stays where you last saw it. */}
+      <div className="flex shrink-0 flex-col gap-3">
+        {error && (
+          <div className="border-status-down/30 bg-status-down/10 text-status-down flex items-start gap-2 rounded-lg border px-3 py-2 text-xs">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            {error}
+          </div>
+        )}
 
-      <Card className="py-0 shadow-sm" data-tour="chat-input">
-        <CardContent className="flex items-end gap-2 p-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submit()
-              }
-            }}
-            rows={4}
-            placeholder="Ask about tenders, email or the CRM…"
-            // Roomy enough to see a few lines of what you are writing, and it
-            // grows from there rather than scrolling inside four fixed rows.
-            className="max-h-64 min-h-[6.5rem] resize-none border-0 shadow-none focus-visible:ring-0"
-          />
-          <Button
-            onClick={submit}
-            disabled={send.isPending || !input.trim()}
-            size="icon"
-            className="mb-1"
-          >
-            <Send className="size-4" aria-hidden />
-            <span className="sr-only">Send</span>
-          </Button>
-        </CardContent>
-      </Card>
+        <Card className="py-0 shadow-sm" data-tour="chat-input">
+          <CardContent className="flex items-end gap-2 p-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submit()
+                }
+              }}
+              rows={4}
+              placeholder="Ask about tenders, email or the CRM…"
+              // Roomy enough to see a few lines of what you are writing, and it
+              // grows from there rather than scrolling inside four fixed rows.
+              className="max-h-64 min-h-[6.5rem] resize-none border-0 shadow-none focus-visible:ring-0"
+            />
+            <Button
+              onClick={submit}
+              disabled={send.isPending || !input.trim()}
+              size="icon"
+              className="mb-1"
+            >
+              <Send className="size-4" aria-hidden />
+              <span className="sr-only">Send</span>
+            </Button>
+          </CardContent>
+        </Card>
 
-      {!engaged && (
-        <p className="text-muted-foreground text-center text-xs">
-          Writes to the CRM are queued for your approval, never made directly.
-        </p>
-      )}
+        {!engaged && (
+          <p className="text-muted-foreground text-center text-xs">
+            Writes to the CRM are queued for your approval, never made directly.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

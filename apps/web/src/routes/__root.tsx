@@ -19,6 +19,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '#/components/ui/s
 import { Toaster } from '#/components/ui/sonner'
 import { api } from '#/lib/api'
 import { getQueryClient } from '#/lib/query-client'
+import { cn } from '#/lib/utils'
 import appCss from '../styles.css?url'
 
 /** Page titles, keyed by route. Keeps the header honest without prop-drilling. */
@@ -133,14 +134,20 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const title = TITLES[pathname] ?? (pathname.startsWith('/reports/') ? 'Report' : 'Batanat')
 
+  // Chat owns its own scrolling: the composer stays put at the bottom and only
+  // the transcript moves under it. Every other screen scrolls as a page.
+  const ownsScroll = pathname === '/'
+
   return (
-    <SidebarProvider>
+    // The shell is exactly one viewport tall and never scrolls itself, so the
+    // scrolling region is always something a screen chose on purpose.
+    <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
       {/* min-w-0: a flex child defaults to min-width:auto, which means it refuses
           to shrink below its content. Without it a wide table stops being the
           table's problem and becomes the page's — the whole app scrolls
           sideways and the sidebar slides off screen. */}
-      <SidebarInset className="min-w-0 bg-transparent">
+      <SidebarInset className="min-h-0 min-w-0 overflow-hidden bg-transparent">
         <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur-xl">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 !h-4" />
@@ -150,8 +157,15 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <ModeNotice />
-        <main className="min-w-0 flex-1 p-4 md:p-6">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        <main
+          className={cn(
+            'min-h-0 min-w-0 flex-1 p-4 md:p-6',
+            ownsScroll ? 'flex flex-col overflow-hidden' : 'overflow-y-auto',
+          )}
+        >
+          <div className={cn('mx-auto w-full max-w-6xl', ownsScroll && 'flex min-h-0 flex-1 flex-col')}>
+            {children}
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>
