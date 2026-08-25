@@ -3,7 +3,7 @@
 <img width="1660" height="878" alt="image" src="https://github.com/user-attachments/assets/a972695a-7180-4ac5-be93-c00836fd48a2" />
 
 
-An operations assistant for energy-sector business development in Kenya. It does three things:
+An agentic harness for energy-sector business development in Kenya. It does three things:
 
 1. **Watches Gmail** and flags business opportunities.
 2. **Scrapes government and parastatal procurement sites** for energy tenders, and reports.
@@ -246,9 +246,6 @@ that did not pass. Needs `DOCKER_HUB_TOKEN` and the SSH key in repo secrets.
   the agent can never send from the inbox it reads. Recipients are per-user under Settings, with
   no environment fallback, and that endpoint sits outside the capability table — nothing a run
   reads can change where a report lands.
-- **Zoho data-centre mismatch is the most common integration failure.** `api_domain` and
-  `accounts_url` come from the token response and are persisted per connection; `zohoapis.com`
-  is never hardcoded.
 - **Two of five scrapers are down.** As of 2026-08-24: PPIP works through its public JSON API
   (~310 tenders, and as the national portal it makes the others largely redundant), REREC serves
   a plain table (~157), KETRACO works via a fallback URL. KPLC and KenGen render client-side and
@@ -264,21 +261,3 @@ that did not pass. Needs `DOCKER_HUB_TOKEN` and the SSH key in repo secrets.
 
 ---
 
-## Roadmap
-
-In the order I would spend on it.
-
-- **The two remaining scrapers.** Look for JSON endpoints first — that is how PPIP was solved.
-  Headless browser only as a fallback; it costs ~400MB and a new class of flakiness.
-- **Multi-user.** Every table is keyed by `user_id`, but there is no invite flow. The shape is
-  right; the surface is missing.
-- **A real queue.** Runs happen inline in the request or cron tick — fine at this volume, wrong at
-  ten times it. Celery or arq on the existing Redis.
-- **Classification cost.** Every new email goes to the model. A sender allowlist, keyword
-  prefilter and thread deduplication would cut that substantially.
-- **The Skill.MD validator.** Regex heuristics guarding something no security decision reads.
-  Make it a warning, or replace it with a structured editor.
-- **Observability beyond logs.** No place to see cost-per-run trending up, or a source quietly
-  degraded for a week.
-- **Test isolation for the network.** `make sources` hits live sites. Recorded cassettes would
-  catch source regressions in CI.
