@@ -302,7 +302,7 @@ Passwords are hashed with `hashlib.scrypt` from the standard library (n=2^15, r=
 parameters so the cost can be raised later without invalidating existing hashes.
 
 ```
-email     martin@batanat.co.ke
+email     martin@batanat.com
 password  batanat-dev
 ```
 

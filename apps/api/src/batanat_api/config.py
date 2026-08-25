@@ -76,7 +76,7 @@ class Settings(BaseSettings):
 
     # The seeded account's password. Convenient in development, and refused
     # outright outside it — see `assert_safe_for_environment`.
-    default_user_email: str = "martin@batanat.co.ke"
+    default_user_email: str = "martin@batanat.com"
     default_user_password: str = "batanat-dev"
 
     def assert_safe_for_environment(self) -> None:
