@@ -209,16 +209,30 @@ async def search_semantic(
 
     client = _qdrant()
     try:
-        hits = await client.search(
+        # `query_points`, not `search`. The latter was removed from the client,
+        # and because the except below caught the resulting AttributeError and
+        # returned an empty list, semantic recall answered "nothing found" to
+        # every question instead of failing — an uploaded knowledge base that
+        # ingested, embedded and indexed correctly and was never once read.
+        response = await client.query_points(
             collection_name=COLLECTION,
-            query_vector=vector,
+            query=vector,
             query_filter=Filter(
                 must=[FieldCondition(key="user_id", match=MatchValue(value=str(user_id)))]
             ),
             limit=limit,
             score_threshold=min_score,
         )
-    except Exception as exc:  # noqa: BLE001
+        hits = response.points
+    except (AttributeError, TypeError) as exc:
+        # A wrong call, not a sick dependency. Still degrades to empty so chat
+        # keeps working, but says plainly that this is a bug rather than an
+        # outage — the distinction the single `except Exception` erased.
+        log.error(
+            "memory.search_client_api_mismatch", error_type=type(exc).__name__, detail=str(exc)
+        )
+        return []
+    except Exception as exc:  # noqa: BLE001 — Qdrant being down must not fail a chat turn
         log.warning("memory.search_failed", error_type=type(exc).__name__)
         return []
     finally:
