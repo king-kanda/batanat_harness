@@ -161,6 +161,12 @@ export const api = {
     me: () => request<CurrentUser>('/api/auth/me'),
     login: (email: string, password: string) =>
       post<CurrentUser>('/api/auth/login', { email, password }),
+    register: (email: string, password: string, confirmPassword: string) =>
+      post<CurrentUser>('/api/auth/register', {
+        email,
+        password,
+        confirm_password: confirmPassword,
+      }),
     logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   },
 

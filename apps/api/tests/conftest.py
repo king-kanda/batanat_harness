@@ -99,7 +99,11 @@ async def _clean_redis_keys():
 
     client = from_url(get_settings().redis_url)
     try:
-        for prefix in ("pairing:*", "oauth:state:*"):
+        # `login:*` and `register:*` are the rate-limit counters this docstring
+        # is about. Leaving them out meant a test that exercised a limit left the
+        # counter armed for 15 minutes — passing alone, then failing the whole
+        # suite on the next run, from a different test than the one at fault.
+        for prefix in ("pairing:*", "oauth:state:*", "login:*", "register:*"):
             keys = [key async for key in client.scan_iter(match=prefix)]
             if keys:
                 await client.delete(*keys)

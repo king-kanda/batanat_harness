@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as OpportunitiesRouteImport } from './routes/opportunities'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
@@ -57,6 +58,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const OpportunitiesRoute = OpportunitiesRouteImport.update({
   id: '/opportunities',
   path: '/opportunities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
+  '/register': typeof RegisterRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
+  '/register': typeof RegisterRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
+  '/register': typeof RegisterRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/memory'
     | '/onboarding'
     | '/opportunities'
+    | '/register'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/memory'
     | '/onboarding'
     | '/opportunities'
+    | '/register'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/memory'
     | '/onboarding'
     | '/opportunities'
+    | '/register'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   MemoryRoute: typeof MemoryRoute
   OnboardingRoute: typeof OnboardingRoute
   OpportunitiesRoute: typeof OpportunitiesRoute
+  RegisterRoute: typeof RegisterRoute
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/opportunities'
       fullPath: '/opportunities'
       preLoaderRoute: typeof OpportunitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   MemoryRoute: MemoryRoute,
   OnboardingRoute: OnboardingRoute,
   OpportunitiesRoute: OpportunitiesRoute,
+  RegisterRoute: RegisterRoute,
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsKnowledgeRoute: SettingsKnowledgeRoute,

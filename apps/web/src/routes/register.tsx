@@ -9,41 +9,41 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { api } from '#/lib/api'
 
-export const Route = createFileRoute('/login')({ component: Login })
+export const Route = createFileRoute('/register')({ component: Register })
 
-/**
- * The seeded development account.
- *
- * Prefilled rather than hidden behind a button: on a local machine the only
- * thing this form guards is a database you also own, and typing it a hundred
- * times a day protects nobody. `import.meta.env.DEV` is false in any built
- * bundle, so neither the values nor the prefill survive `bun run build`.
- */
-const DEV_EMAIL = 'martin@batanat.com'
-const DEV_PASSWORD = 'batanat-dev'
+/** Mirrors `MIN_PASSWORD_LENGTH` in the API. Checked there too — this is only
+ * so the mismatch is caught before a round trip. */
+const MIN_PASSWORD_LENGTH = 8
 
-function Login() {
+function Register() {
   const navigate = useNavigate()
   const router = useRouter()
-  const [email, setEmail] = useState(import.meta.env.DEV ? DEV_EMAIL : '')
-  const [password, setPassword] = useState(import.meta.env.DEV ? DEV_PASSWORD : '')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const signIn = useMutation({
-    mutationFn: () => api.auth.login(email, password),
+  const createAccount = useMutation({
+    mutationFn: () => api.auth.register(email, password, confirmPassword),
     onSuccess: async () => {
       setError(null)
-      // Re-run the root loader so the guard sees the new session before we land.
+      // Registration signs you in, so the guard has to re-read the session
+      // before we navigate or it bounces straight back to /login.
       await router.invalidate()
       navigate({ to: '/' })
     },
     onError: (e: Error) => setError(e.message),
   })
 
+  // Only once they have typed something, so the form does not open shouting.
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword
+  const tooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (!email || !password || signIn.isPending) return
-    signIn.mutate()
+    if (!email || !password || !confirmPassword) return
+    if (mismatch || tooShort || createAccount.isPending) return
+    createAccount.mutate()
   }
 
   return (
@@ -57,7 +57,7 @@ function Login() {
             <h1 className="text-2xl font-extrabold tracking-tight">
               Batanat <span className="text-italic-serif font-normal">Harness</span>
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">Sign in to continue.</p>
+            <p className="text-muted-foreground mt-1 text-sm">Create an account.</p>
           </div>
         </div>
 
@@ -83,11 +83,32 @@ function Login() {
                 <Input
                   id="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                {tooShort && (
+                  <p className="text-muted-foreground text-xs">
+                    At least {MIN_PASSWORD_LENGTH} characters.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password">Confirm password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={mismatch}
+                  required
+                />
+                {mismatch && (
+                  <p className="text-status-down text-xs">The two passwords do not match.</p>
+                )}
               </div>
 
               {error && (
@@ -97,33 +118,24 @@ function Login() {
                 </p>
               )}
 
-              <Button type="submit" className="w-full" disabled={signIn.isPending}>
-                {signIn.isPending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                Sign in
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createAccount.isPending || mismatch || tooShort}
+              >
+                {createAccount.isPending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                Create account
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-muted-foreground mt-4 text-center text-sm">
-          No account yet?{' '}
-          <Link to="/register" className="text-foreground font-medium underline underline-offset-4">
-            Create one
+          Already have an account?{' '}
+          <Link to="/login" className="text-foreground font-medium underline underline-offset-4">
+            Sign in
           </Link>
         </p>
-
-        {import.meta.env.DEV && (
-          <div className="border-border bg-card text-muted-foreground mt-4 rounded-lg border p-3 text-xs">
-            <p className="text-foreground font-medium">Development sign-in — prefilled</p>
-            <p className="mt-1 font-mono text-[11px]">{DEV_EMAIL} / {DEV_PASSWORD}</p>
-            <p className="mt-1.5 leading-relaxed">
-              Seeded by <span className="font-mono">make seed</span>. The API refuses to start
-              with this password when <span className="font-mono">APP_ENV</span> is not{' '}
-              <span className="font-mono">local</span>. This block is compiled out of a
-              production build.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )
