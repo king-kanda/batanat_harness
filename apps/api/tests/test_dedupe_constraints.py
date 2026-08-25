@@ -334,3 +334,97 @@ async def test_an_approval_keeps_the_payload_exactly_as_proposed(session, user) 
 
     assert approval.proposed_payload == payload
     assert approval.status is enums.ApprovalStatus.pending
+
+
+# --- clearing the email list ---------------------------------------------------
+
+
+async def test_clearing_emails_removes_their_votes_too(session, user) -> None:
+    """Feedback references emails by id with no foreign key.
+
+    Left behind, the rows point at nothing and quietly skew `make eval` — a
+    precision figure computed against labels whose subjects no longer exist.
+    """
+    import uuid as _uuid
+    from datetime import UTC, datetime
+
+    from sqlalchemy import delete, func, select
+
+    from batanat_api.db.models import Email, Feedback
+
+    email = Email(
+        user_id=user.id,
+        gmail_message_id=f"msg-{_uuid.uuid4().hex[:8]}",
+        gmail_thread_id="thread-1",
+        subject="Invitation to tender",
+        received_at=datetime.now(UTC),
+    )
+    session.add(email)
+    await session.flush()
+
+    session.add(
+        Feedback(
+            user_id=user.id,
+            subject_type="email",
+            subject_id=email.id,
+            rating=enums.FeedbackRating.up,
+        )
+    )
+    await session.commit()
+
+    # What the endpoint does.
+    ids = (await session.execute(select(Email.id).where(Email.user_id == user.id))).scalars().all()
+    await session.execute(
+        delete(Feedback).where(
+            Feedback.user_id == user.id,
+            Feedback.subject_type == "email",
+            Feedback.subject_id.in_(ids),
+        )
+    )
+    await session.execute(delete(Email).where(Email.user_id == user.id))
+    await session.commit()
+
+    assert (
+        await session.execute(
+            select(func.count()).select_from(Email).where(Email.user_id == user.id)
+        )
+    ).scalar() == 0
+    assert (
+        await session.execute(
+            select(func.count()).select_from(Feedback).where(Feedback.user_id == user.id)
+        )
+    ).scalar() == 0
+
+
+async def test_clearing_leaves_tender_votes_alone(session, user) -> None:
+    """Only email feedback goes. A tender vote is a different subject type."""
+    import uuid as _uuid
+
+    from sqlalchemy import delete, func, select
+
+    from batanat_api.db.models import Email, Feedback
+
+    tender_vote = Feedback(
+        user_id=user.id,
+        subject_type="tender",
+        subject_id=_uuid.uuid4(),
+        rating=enums.FeedbackRating.down,
+    )
+    session.add(tender_vote)
+    await session.commit()
+
+    ids = (await session.execute(select(Email.id).where(Email.user_id == user.id))).scalars().all()
+    await session.execute(
+        delete(Feedback).where(
+            Feedback.user_id == user.id,
+            Feedback.subject_type == "email",
+            Feedback.subject_id.in_(ids),
+        )
+    )
+    await session.commit()
+
+    assert (
+        await session.execute(
+            select(func.count()).select_from(Feedback).where(Feedback.user_id == user.id)
+        )
+    ).scalar() == 1
