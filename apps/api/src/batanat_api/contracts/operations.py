@@ -232,6 +232,10 @@ class DocumentView(BaseModel):
         "only ever quoted as data."
     )
     chunk_count: int
+    indexed_chunks: int = Field(
+        description="How many chunks reached the vector store. Below chunk_count means the "
+        "document is only partly searchable."
+    )
     characters: int
     uploaded_at: datetime
 

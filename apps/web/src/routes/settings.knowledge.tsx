@@ -199,6 +199,14 @@ function KnowledgeBase() {
                   <StatusBadge tone={doc.trust_tag === 'user_asserted' ? 'ok' : 'degraded'}>
                     {humaniseShort(doc.trust_tag)}
                   </StatusBadge>
+                  {/* Indexed is what makes a document findable. Showing only the
+                      chunk count would present a partly indexed document as a
+                      healthy one. */}
+                  {doc.indexed_chunks < doc.chunk_count && (
+                    <StatusBadge tone="down">
+                      {doc.indexed_chunks} of {doc.chunk_count} searchable
+                    </StatusBadge>
+                  )}
                 </div>
                 <p className="text-muted-foreground text-[11px]">
                   {doc.chunk_count} chunk{doc.chunk_count === 1 ? '' : 's'} ·{' '}

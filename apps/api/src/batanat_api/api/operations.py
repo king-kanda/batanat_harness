@@ -787,7 +787,10 @@ async def upload_knowledge(
     A third-party PDF can carry the same injection text an email can.
     """
     from batanat_api.knowledge.documents import (
+        MAX_FILE_BYTES,
+        DocumentTooLongError,
         EmptyDocumentError,
+        IndexingUnavailableError,
         UnsupportedDocumentError,
         ingest_document,
     )
@@ -806,6 +809,16 @@ async def upload_knowledge(
             "system_derived is reserved for things this system observed; an upload is not one.",
         )
 
+    # Refuse on the declared size before reading. `.read()` materialises the
+    # whole upload, so checking afterwards meant an oversized file was fully in
+    # memory by the time we decided we did not want it.
+    if file.size is not None and file.size > MAX_FILE_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"That file is {file.size // 1024 // 1024}MB; the limit is "
+            f"{MAX_FILE_BYTES // 1024 // 1024}MB.",
+        )
+
     data = await file.read()
     try:
         summary = await ingest_document(
@@ -816,7 +829,16 @@ async def upload_knowledge(
             data=data,
             trust_tag=tag,
         )
-    except (UnsupportedDocumentError, EmptyDocumentError, ValueError) as exc:
+    except IndexingUnavailableError as exc:
+        # Read fine, indexed nowhere. A 200 here would file an unsearchable
+        # document as a knowledge base entry.
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from None
+    except (
+        UnsupportedDocumentError,
+        EmptyDocumentError,
+        DocumentTooLongError,
+        ValueError,
+    ) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
 
     return DocumentView(**asdict(summary))

@@ -720,6 +720,11 @@
           "title": "Chunk Count",
           "type": "integer"
         },
+        "indexed_chunks": {
+          "description": "How many chunks reached the vector store. Below chunk_count means the document is only partly searchable.",
+          "title": "Indexed Chunks",
+          "type": "integer"
+        },
         "characters": {
           "title": "Characters",
           "type": "integer"
@@ -735,6 +740,7 @@
         "filename",
         "trust_tag",
         "chunk_count",
+        "indexed_chunks",
         "characters",
         "uploaded_at"
       ],
