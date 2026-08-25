@@ -282,7 +282,9 @@ async def dispatch_opportunity_alert(
 ) -> bool:
     """Interrupt for a high-priority email opportunity. Everything else waits."""
     settings = get_settings()
-    permalink = f"{settings.web_public_url.rstrip('/')}/results?email={email_id}"
+    # `/opportunities`, not `/results` — the latter has never been a route, so
+    # every alert this has ever sent carried a link to a 404.
+    permalink = f"{settings.web_public_url.rstrip('/')}/opportunities?email={email_id}"
 
     links = (
         (
