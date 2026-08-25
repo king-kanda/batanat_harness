@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { Loader2, Send, SquarePen, TriangleAlert } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { ChatMessage, ChatThinking } from '#/components/chat-message'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { Textarea } from '#/components/ui/textarea'
@@ -150,6 +151,14 @@ function Home() {
     onError: (e: Error) => setError(e instanceof ApiError ? e.message : 'Unexpected error'),
   })
 
+  // Follow the thread as it grows. A reply that lands below the fold reads as
+  // nothing having happened, and the send box is at the bottom of the page.
+  const endRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (turns.length === 0) return
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [turns.length, send.isPending])
+
   const submit = () => {
     const message = input.trim()
     if (!message || send.isPending) return
@@ -197,31 +206,27 @@ function Home() {
       )}
 
       {turns.length > 0 && (
-        <div className="space-y-5">
-          <div className="flex justify-end">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+              Conversation
+            </span>
+            <span className="bg-border h-px flex-1" aria-hidden />
             <Button variant="ghost" size="sm" onClick={startNewThread} disabled={send.isPending}>
               <SquarePen className="size-3.5" aria-hidden />
               New chat
             </Button>
           </div>
-          {turns.map((turn, index) => (
-            <div key={index}>
-              <div className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">
-                {turn.role}
-              </div>
-              <div className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</div>
-              {turn.tools && turn.tools.length > 0 && (
-                <div className="text-muted-foreground mt-1.5 font-mono text-[10px]">
-                  used: {turn.tools.join(' · ')}
-                </div>
-              )}
-            </div>
-          ))}
-          {send.isPending && (
-            <p className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden /> thinking…
-            </p>
-          )}
+
+          {/* A log rather than a list: replies arrive without the reader asking,
+              so a screen reader should announce them where they land. */}
+          <div className="space-y-5" role="log" aria-live="polite" aria-label="Conversation">
+            {turns.map((turn, index) => (
+              <ChatMessage key={index} role={turn.role} text={turn.text} tools={turn.tools} />
+            ))}
+            {send.isPending && <ChatThinking />}
+            <div ref={endRef} aria-hidden />
+          </div>
         </div>
       )}
 

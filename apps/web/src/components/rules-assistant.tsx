@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
-import { Loader2, Send, Sparkles, TriangleAlert } from 'lucide-react'
+import { Send, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import { ChatMessage, ChatThinking } from '#/components/chat-message'
 import { Button } from '#/components/ui/button'
 import { Textarea } from '#/components/ui/textarea'
 import { api } from '#/lib/api'
@@ -89,21 +90,17 @@ export function AssistantChat({
           </div>
         )}
 
+        {/* Same bubbles as the main chat: two places to talk to the harness
+            should not be two ideas of what a transcript looks like. */}
         {turns.map((turn, index) => (
-          <div key={index}>
-            <div className="text-muted-foreground mb-0.5 flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase">
-              {turn.role === 'assistant' && <Sparkles className="text-primary size-3" aria-hidden />}
-              {turn.role === 'user' ? 'You' : 'Assistant'}
-            </div>
-            <div className="text-sm leading-relaxed whitespace-pre-wrap">{turn.content}</div>
-          </div>
+          <ChatMessage
+            key={index}
+            role={turn.role === 'user' ? 'you' : 'agent'}
+            text={turn.content}
+          />
         ))}
 
-        {ask.isPending && (
-          <p className="text-muted-foreground flex items-center gap-2 text-xs">
-            <Loader2 className="size-3.5 animate-spin" aria-hidden /> thinking…
-          </p>
-        )}
+        {ask.isPending && <ChatThinking />}
 
         {error && (
           <p className="text-status-down flex items-start gap-1.5 text-xs">
