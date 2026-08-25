@@ -171,7 +171,7 @@ class Settings(BaseSettings):
 
     # --- scheduling (phase 5) ---
     scheduler_timezone: str = "Africa/Nairobi"
-    tender_cron_daily: str = "0 11,17 * * *"
+    tender_cron_daily: str = "0 11,17,20 * * *"
     # Weekday *names*, not numbers. APScheduler counts day-of-week from Monday=0
     # while crontab counts from Sunday=0, and `from_crontab` does not remap — so
     # "0 8 * * 1" silently means Tuesday here. Names mean the same in both.
