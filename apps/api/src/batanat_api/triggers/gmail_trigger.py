@@ -179,11 +179,31 @@ async def _classify_batch(
 
     skill = await active_skill(session, user_id)
 
+    # What the business actually does, drawn from the knowledge base. Classifying
+    # against Skill.MD alone means the criteria have to restate everything an
+    # uploaded capability statement already says — and an upload made precisely
+    # to sharpen this decision had no effect on it.
+    #
+    # Only trusted memory reaches the system position: `system_prompt_lines`
+    # returns `user_asserted` and `system_derived` rows, which are the user's own
+    # assertions. The untrusted half stays quoted, exactly as the emails do —
+    # this is an untrusted trigger and nothing here changes that.
+    from batanat_api.memory.store import assemble
+
+    memory = await assemble(
+        session,
+        user_id,
+        query=" ".join(str(item.get("subject") or "") for item in payload)[:500],
+        skill_content=skill.content if skill else None,
+    )
+
     result = await AgentRunner(model=model).run(
         session,
         user_id=user_id,
         trigger=enums.TriggerType.gmail_push,
         payload=payload,
+        memories=memory.system_prompt_lines(),
+        quoted_context=memory.quoted_blocks(),
         instruction=(
             "Classify each email using classify_email. Where a single message is not "
             "enough to judge — a reply with no context, a deadline mentioned earlier — "

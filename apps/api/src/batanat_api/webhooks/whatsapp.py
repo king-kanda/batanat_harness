@@ -154,9 +154,11 @@ async def _chat(session: SessionDep, user_id, sender: str, body: str) -> None:
     doors: this one can read and propose, and cannot commit.
     """
     from batanat_api.agent import conversations
+    from batanat_api.agent import skill as skill_service
     from batanat_api.agent.providers import get_model
     from batanat_api.agent.runner import AgentRunner, KillSwitchEngagedError
     from batanat_api.db import enums
+    from batanat_api.memory.store import assemble
 
     model = get_model()
     if not model.is_configured():
@@ -169,12 +171,27 @@ async def _chat(session: SessionDep, user_id, sender: str, body: str) -> None:
     conversation = await conversations.get_or_create(session, user_id, resumed, first=body)
     window = await conversations.replay_window(session, conversation.id)
 
+    # Same criteria and same knowledge as the web app. This ran with neither
+    # before: no Skill.MD and no semantic memory, so the identical question
+    # asked from a handset went to an agent working from nothing — which reads
+    # as the model being unreliable rather than as missing context.
+    active = await skill_service.get_active(session, user_id)
+    memory = await assemble(
+        session, user_id, query=body, skill_content=active.content if active else None
+    )
+
     try:
         result = await AgentRunner(model=model).run(
             session,
             user_id=user_id,
             trigger=enums.TriggerType.whatsapp_inbound,
             instruction=body,
+            skill_content=active.content if active else None,
+            skill_version_id=active.id if active else None,
+            memories=memory.system_prompt_lines(),
+            # Untrusted-derived memory travels as quoted data, never as
+            # instruction — the same split the web app makes.
+            quoted_context=memory.quoted_blocks(),
             history=window.messages,
             trigger_ref=str(conversation.id),
         )
@@ -182,13 +199,20 @@ async def _chat(session: SessionDep, user_id, sender: str, body: str) -> None:
         await send_reply(sender, "The assistant is paused. Nothing was actioned.")
         return
 
+    # A reply that drew on untrusted memory carries that provenance forward, so
+    # replaying it later keeps quoting rather than asserting.
+    reply_trust = (
+        enums.TrustTag.untrusted_external
+        if memory.quoted_blocks()
+        else enums.TrustTag.system_derived
+    )
     await conversations.record_turn(
         session,
         conversation,
         user_message=body,
         reply=result.output,
         run_id=result.run_id,
-        reply_trust=enums.TrustTag.system_derived,
+        reply_trust=reply_trust,
     )
 
     await send_reply(sender, result.output or "No answer this time.")
