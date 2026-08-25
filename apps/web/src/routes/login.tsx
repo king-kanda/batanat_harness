@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -19,7 +19,7 @@ export const Route = createFileRoute('/login')({ component: Login })
  * times a day protects nobody. `import.meta.env.DEV` is false in any built
  * bundle, so neither the values nor the prefill survive `bun run build`.
  */
-const DEV_EMAIL = 'martin@batanat.co.ke'
+const DEV_EMAIL = 'martin@batanat.com'
 const DEV_PASSWORD = 'batanat-dev'
 
 function Login() {
@@ -117,38 +117,7 @@ function Login() {
             </p>
           </div>
         )}
-
-        <BuildStamp />
       </div>
     </div>
-  )
-}
-
-/**
- * What is actually running.
- *
- * Answers "did my deploy land?" without opening a terminal. The web half is
- * baked at build time by Vite; the API half is fetched, so a mismatch between
- * the two lines means one of them did not roll — which is the failure mode
- * worth being able to see at a glance.
- */
-function BuildStamp() {
-  const health = useQuery({
-    queryKey: ['health-version'],
-    queryFn: api.health,
-    retry: false,
-    staleTime: 60_000,
-  })
-
-  const sha = __BUILD_SHA__.slice(0, 7)
-  const built = __BUILD_TIME__
-
-  return (
-    <p className="text-muted-foreground/70 mt-4 text-center font-mono text-[10px] leading-relaxed">
-      web {sha}
-      {built ? ` · built ${built}` : ''}
-      <br />
-      api {health.data?.version ?? (health.isPending ? '…' : 'unreachable')}
-    </p>
   )
 }
