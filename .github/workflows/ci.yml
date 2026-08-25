@@ -164,6 +164,52 @@ jobs:
           docker run --rm batanat/api:ci alembic --help > /dev/null
           echo "api image starts"
 
+      # The image must bind where it is told, not where it was built to. These
+      # were literal flags in the CMD, so API_HOST/API_PORT from the compose
+      # files were ignored: the scheduler asks for 8001, bound 8000, collided
+      # with the API and crash-looped on every deploy. Assert the contract.
+      - name: API image honours API_PORT
+        if: matrix.name == 'api'
+        run: |
+          docker run -d --name api-port-check -e API_PORT=8001 -e API_HOST=0.0.0.0 \
+            -p 8001:8001 batanat/api:ci
+          for attempt in $(seq 1 30); do
+            # /api/health returns 503 until dependencies are up; this asserts
+            # only that something is listening on the requested port.
+            if curl -s -o /dev/null --max-time 5 http://127.0.0.1:8001/api/health; then
+              echo "api image bound the port it was given"
+              docker rm -f api-port-check > /dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::api image ignored API_PORT=8001"
+          docker logs api-port-check
+          docker rm -f api-port-check > /dev/null
+          exit 1
+
+      # The web equivalent, and it has to actually serve a request rather than
+      # just boot. Nitro picks its build target from whatever runs the build —
+      # bun here — while the runtime stage is node. A mismatched preset produces
+      # an image that builds, starts, and dies on `Bun is not defined`. Only a
+      # real HTTP response proves the bundle matches its runtime.
+      - name: Image actually serves
+        if: matrix.name == 'web'
+        run: |
+          docker run -d --name web-smoke -p 3000:3000 -e HOST=0.0.0.0 batanat/web:ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://127.0.0.1:3000/login >/dev/null 2>&1; then
+              echo "web image serves after ${attempt} attempt(s)"
+              docker rm -f web-smoke > /dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::web image never served /login"
+          docker logs web-smoke
+          docker rm -f web-smoke > /dev/null
+          exit 1
+
       - name: Image runs and is not enormous
         run: |
           MB=$(( $(docker image inspect batanat/${{ matrix.name }}:ci --format '{{.Size}}') / 1024 / 1024 ))

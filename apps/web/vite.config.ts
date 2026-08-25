@@ -21,7 +21,13 @@ const config = defineConfig({
     __BUILD_TIME__: JSON.stringify(process.env.BUILD_TIME ?? ''),
   },
   plugins: [
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    // `preset` is pinned, not left to auto-detection. Nitro picks its target
+    // from whatever runs the build, and the build stage is `oven/bun`, so it
+    // emitted a bundle calling `Bun.serve`. The runtime stage is node:22, which
+    // has no `Bun` global — the container crash-looped on
+    // `ReferenceError: Bun is not defined` and nginx served 502s. Build tool and
+    // runtime are deliberately different here; this is what keeps them apart.
+    nitro({ preset: 'node', rollupConfig: { external: [/^@sentry\//] } }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

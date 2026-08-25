@@ -67,11 +67,22 @@ USER batanat
 EXPOSE 8000
 
 # `/api/health` answers 503 with a full report when a dependency is down, which
-# is what we want a probe to see — the container is up but not serving.
+# is what we want a probe to see — the container is up but not serving. Shell
+# form on purpose: the scheduler runs this same image on a different port, and
+# an exec-form probe would hardcode 8000 and mark it permanently unhealthy.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health || exit 1
+    CMD curl -fsS "http://localhost:${API_PORT:-8000}/api/health" || exit 1
 
 # Migrations are deliberately NOT run here. With more than one replica they
 # would race; the compose file and the CD pipeline run them as a separate
 # one-shot step before the API starts.
-CMD ["uvicorn", "batanat_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+#
+# API_HOST/API_PORT are read here rather than hardcoded. They were literal
+# flags, which meant the values in the compose files were silently ignored:
+# the scheduler runs this image with API_PORT=8001 but bound 8000 anyway, hit
+# the API already sitting there, and crash-looped from the first deploy. It
+# also forced 0.0.0.0 in production, where host networking then published the
+# API straight onto the public interface past nginx and TLS.
+#
+# `exec` so uvicorn is PID 1 and receives SIGTERM on `docker stop`.
+CMD ["sh", "-c", "exec uvicorn batanat_api.main:app --host \"${API_HOST:-0.0.0.0}\" --port \"${API_PORT:-8000}\""]

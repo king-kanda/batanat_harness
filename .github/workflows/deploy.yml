@@ -218,13 +218,25 @@ jobs:
           # model, so a cold start is legitimately slower than a redeploy.
           for attempt in $(seq 1 60); do
             if curl -fsS --max-time 5 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
-              echo "healthy after ${attempt} attempt(s)"
-              exit 0
+              echo "api healthy after ${attempt} attempt(s)"
+              # The web app too. Checking only the API let a deploy go green
+              # with the site serving 502s, because a crash-looping web
+              # container is invisible from the API's health endpoint.
+              for w in $(seq 1 30); do
+                if curl -fsS --max-time 5 http://127.0.0.1:3000/login >/dev/null 2>&1; then
+                  echo "web healthy after ${w} attempt(s)"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "API is up but the web app never became healthy"
+              docker compose -f docker-compose.prod.yml logs --tail 60 web || true
+              break
             fi
             sleep 2
           done
 
-          echo "API never became healthy"
+          echo "deploy did not reach a healthy state"
           docker compose -f docker-compose.prod.yml logs --tail 60 api || true
 
           PREVIOUS="$(cat .previous 2>/dev/null || true)"
