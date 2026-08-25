@@ -89,11 +89,12 @@ Non-negotiable. If a change seems to require breaking one, stop and ask.
 
 ### Where the datastores run
 
-**Postgres, MongoDB and Redis run on the host machine**, as system services, and **Qdrant runs in an
-existing container** — this project starts no containers of its own. `docker-compose.yml` is kept as
-an alternative for a clean machine; it publishes non-default host ports (55432 / 57017 / 56379) so it
-can never collide with the host services. If you use it, switch the URLs in `.env` to the commented
-Compose variants.
+In development, **Postgres, MongoDB and Redis run on the host machine** as system services, and
+**Qdrant runs in an existing container**. `docker-compose.yml` is kept as an alternative for a clean
+machine; it publishes non-default host ports (55432 / 57017 / 56379) so it can never collide with
+the host services. If you use it, switch the URLs in `.env` to the commented Compose variants.
+
+Production uses `docker-compose.prod.yml` — see [Deployment](#deployment).
 
 ---
 
@@ -118,7 +119,7 @@ make web
 - Web — http://localhost:3000
 
 The API **creates its Postgres database at startup** if it does not exist, so there is no manual
-provisioning step. Tables arrive with Alembic in phase 1.
+provisioning step. Tables are migrated with Alembic.
 
 ### See it working without any credentials
 
@@ -392,31 +393,23 @@ Every image gets an immutable `:api-<sha>` tag alongside the moving `:api`. A pi
 pushes the moving tag has nothing to roll back *to* — the tag that was good ten minutes ago now
 points at the build that broke.
 
-The login screen shows the build it is serving:
+It then deploys over SSH, pulling the new tags on the server rather than building or cloning
+there. Needs `DOCKER_HUB_TOKEN` and the SSH key in repo secrets.
 
-```
-web 1a2b3c4 · built 2026-08-24T17:05Z
-api 0.1.0
-```
+`VITE_API_URL` is compiled into the browser bundle rather than read at runtime, so **one image is
+tied to one API origin** — a staging image cannot be promoted to production unless both point at
+the same API.
 
-Two lines on purpose. The web half is baked in by Vite at build time; the API half is fetched.
-A mismatch means one of them did not roll, which is otherwise a deploy failure you only find
-by behaviour.
-
-Needs `DOCKER_HUB_TOKEN` in repo secrets. `VITE_API_URL` is compiled into the browser bundle
-rather than read at runtime, so **one image is tied to one API origin** — a staging image cannot
-be promoted to production unless both point at the same API.
-
-`docker-compose.yml` runs `web`, `api`, `scheduler` and `qdrant` as containers; Postgres, Mongo,
-Redis and nginx belong on the host. The scheduler is a **separate service with
-`ENABLE_SCHEDULER=true` while the API has it false** — the cron jobs are not distributed-safe,
-and two schedulers means two tender sweeps and two sets of model calls.
+`docker-compose.prod.yml` runs `web`, `api`, `scheduler` and `qdrant`; Postgres, Mongo, Redis and
+nginx belong on the host. The scheduler is a **separate service with `ENABLE_SCHEDULER=true` while
+the API has it false** — the cron jobs are not distributed-safe, and two schedulers means two
+tender sweeps and two sets of model calls.
 
 ## Observability
 
 Every unit of work — an HTTP request, a scheduled run, a webhook delivery — carries a `run_id`.
 It flows through a contextvar into every log line, is echoed in the `x-run-id` response header, and
-is what the Activity screen will key on in phase 7. Logs are one JSON object per line on stdout;
+is what the audit screen keys on. Logs are one JSON object per line on stdout;
 stdlib loggers (uvicorn, asyncpg, httpx) are routed through the same pipeline.
 
 Secrets are redacted in the logging processor, not at the call site — the rule that OAuth tokens are
@@ -457,64 +450,23 @@ never logged must not depend on every future author remembering it.
 
 ---
 
-## What I would change with a budget
+## Roadmap
 
-Honest list, in the order I would spend on it.
+In the order I would spend on it.
 
-**The two remaining scrapers.** KPLC and KenGen render client-side, so the HTML
-we fetch contains no tenders. A headless browser fixes it and costs ~400MB, a
-slower cron and a new class of flakiness. PPIP turned out to have a public JSON
-API, which is how that one was solved — the same is probably true here, and is
-cheaper than a browser. Endpoints first, browser as the fallback.
-
-**Multi-user.** Every table is keyed by `user_id` and every call site takes one,
-but the seeder creates a single account and there is no invite flow. The shape
-is right; the surface is missing.
-
-**A real queue.** Runs happen inline in the request or the cron tick. That is
-fine at this volume and wrong at ten times it — a slow scrape holds a worker,
-and a crash mid-run loses the tail. Celery or arq with the existing Redis.
-
-**Classification cost.** Every new email currently goes to the model. A cheap
-first pass — sender allowlist, keyword prefilter, thread deduplication — would
-cut that substantially before anything expensive runs.
-
-**The Skill.MD validator.** It is regex heuristics guarding something that does
-not actually need guarding, since no security decision reads that document. I
-would either make it a warning rather than a rejection, or replace it with a
-structured editor where the dangerous shapes are simply not expressible.
-
-**Observability beyond logs.** Every run has an id, a cost and a duration in
-Postgres, which is most of the way to useful. What is missing is a place to see
-cost-per-run trending up, or a source that has quietly been degraded for a week.
-
-**Test isolation for the network.** The tender tests exercise parsing against
-fixtures, but `make sources` hits live sites. A recorded-cassette layer would
-make source regressions catchable in CI rather than on a Tuesday morning.
-
-## Phase status
-
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Scaffold, Compose, contracts, CPU-only guard | **done** |
-| 1 | Data layer: migrations, token vault | **done** |
-| 2 | Connections: Gmail, Zoho, WhatsApp pairing | **done** (needs client credentials to verify live) |
-| 3 | Agent runtime: capability resolver, limits, kill switch | **done** |
-| 4 | Tools: email, tender sources, CRM | **done** (Gmail/Zoho need credentials to run live) |
-| 5 | Triggers: Gmail Pub/Sub, tender cron, maintenance | **done** |
-| 6 | Validation, approvals, notification dispatch | **done** |
-| 7 | Frontend: eight routes, chat, report permalinks | **done** |
-| 8 | Memory: Qdrant, selective retrieval, summarising agent | **done** |
-| 9 | Evals, demo mode, docs | **done** |
-
-Built after the phase plan, in response to QA:
-
-| Area | What |
-|---|---|
-| Conversations | Threaded chat, persisted and replayed, browsable in the sidebar |
-| WhatsApp | Chat interface with chunked replies; approve-by-reply loop end to end |
-| Tender relevance | Keyword + model filtering, so the report is energy rather than everything |
-| PPIP | Rewritten onto its JSON API — the one source that covers every procuring entity |
-| Report recipients | Per user, set in the UI, no environment fallback |
-| Test sends | A button per channel, because SendGrid and Meta only fail at send time |
-| Deployment | Docker Hub matrix build, immutable tags, build stamp on the login screen |
+- **The two remaining scrapers.** KPLC and KenGen render client-side. PPIP turned out to have a
+  public JSON API, which is how that one was solved — look for endpoints first, headless browser
+  only as the fallback, since it costs ~400MB and a new class of flakiness.
+- **Multi-user.** Every table is keyed by `user_id`, but the seeder creates a single account and
+  there is no invite flow. The shape is right; the surface is missing.
+- **A real queue.** Runs happen inline in the request or the cron tick — fine at this volume, wrong
+  at ten times it. Celery or arq on the existing Redis.
+- **Classification cost.** Every new email goes to the model. A sender allowlist, keyword prefilter
+  and thread deduplication would cut that substantially before anything expensive runs.
+- **The Skill.MD validator.** Regex heuristics guarding something no security decision reads. Make
+  it a warning, or replace it with a structured editor where the dangerous shapes are not
+  expressible.
+- **Observability beyond logs.** Runs carry id, cost and duration in Postgres. What is missing is a
+  place to see cost-per-run trending up, or a source quietly degraded for a week.
+- **Test isolation for the network.** Tender tests parse fixtures, but `make sources` hits live
+  sites. Recorded cassettes would catch source regressions in CI.
