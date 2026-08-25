@@ -1,5 +1,6 @@
 import { Loader2, Sparkles, User } from 'lucide-react'
 
+import { Markdown } from '#/components/markdown'
 import { Badge } from '#/components/ui/badge'
 import { cn } from '#/lib/utils'
 
@@ -81,15 +82,18 @@ export function ChatMessage({
 
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl border px-4 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap',
+          'max-w-[85%] rounded-2xl border px-4 py-2.5 text-sm leading-relaxed break-words',
           // One squared corner points the bubble back at its byline, which is
           // what makes the side readable without reading the label again.
           mine
-            ? 'border-primary/40 bg-accent text-accent-foreground rounded-tr-sm'
+            ? 'border-primary/40 bg-accent text-accent-foreground rounded-tr-sm whitespace-pre-wrap'
             : 'border-border bg-card text-card-foreground rounded-tl-sm shadow-sm',
         )}
       >
-        {text}
+        {/* Only the agent writes Markdown. What you typed is shown back to you
+            exactly as you typed it — an asterisk in your own message is an
+            asterisk, not emphasis you did not ask for. */}
+        {mine ? text : <Markdown>{text}</Markdown>}
       </div>
 
       {usedTools && (
