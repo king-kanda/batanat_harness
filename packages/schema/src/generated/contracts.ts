@@ -145,6 +145,8 @@ export interface DocumentView {
   /** user_asserted may inform the agent directly; untrusted_external is only ever quoted as data. */
   trust_tag: string;
   chunk_count: number;
+  /** How many chunks reached the vector store. Below chunk_count means the document is only partly searchable. */
+  indexed_chunks: number;
   characters: number;
   uploaded_at: string;
 }

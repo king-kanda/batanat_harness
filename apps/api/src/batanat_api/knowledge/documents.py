@@ -42,7 +42,13 @@ MAX_FILE_BYTES = 10 * 1024 * 1024  # 10MB
 #: idea, small enough that a hit returns something specific.
 CHUNK_CHARS = 1200
 CHUNK_OVERLAP = 150
-MAX_CHUNKS_PER_DOCUMENT = 200
+
+#: A safety rail, not a quality cliff. At 200 this cut off around 240K
+#: characters — an ordinary hundred-page PDF — and did it *silently*, leaving a
+#: document that answered confidently from the part that made it in and had no
+#: idea about the rest. 2000 chunks is roughly a thousand pages, past which the
+#: upload is refused with a reason rather than quietly half-read.
+MAX_CHUNKS_PER_DOCUMENT = 2000
 
 TEXT_TYPES = {"text/plain", "text/markdown", "text/csv", "application/json", ""}
 PDF_TYPES = {"application/pdf"}
@@ -58,12 +64,23 @@ class EmptyDocumentError(ValueError):
     pass
 
 
+class DocumentTooLongError(ValueError):
+    """Beyond the chunk ceiling. Refused rather than indexed in part."""
+
+
+class IndexingUnavailableError(RuntimeError):
+    """Nothing reached the vector store, so nothing would ever be retrievable."""
+
+
 @dataclass(slots=True)
 class DocumentSummary:
     document_id: uuid.UUID
     filename: str
     trust_tag: str
     chunk_count: int
+    #: How many of those chunks actually reached the vector store. Anything less
+    #: than `chunk_count` is retrievable only in part.
+    indexed_chunks: int
     characters: int
     uploaded_at: datetime
 
@@ -124,7 +141,13 @@ def normalise(text: str) -> str:
     return text.strip()
 
 
-def chunk_text(text: str, *, size: int = CHUNK_CHARS, overlap: int = CHUNK_OVERLAP) -> list[str]:
+def chunk_text(
+    text: str,
+    *,
+    size: int = CHUNK_CHARS,
+    overlap: int = CHUNK_OVERLAP,
+    max_chunks: int = MAX_CHUNKS_PER_DOCUMENT,
+) -> list[str]:
     """Split on paragraph boundaries where possible, with a little overlap.
 
     Overlap matters: a fact that straddles a boundary is otherwise retrievable
@@ -139,7 +162,7 @@ def chunk_text(text: str, *, size: int = CHUNK_CHARS, overlap: int = CHUNK_OVERL
     chunks: list[str] = []
     start = 0
 
-    while start < len(text) and len(chunks) < MAX_CHUNKS_PER_DOCUMENT:
+    while start < len(text) and len(chunks) < max_chunks:
         end = min(start + size, len(text))
 
         if end < len(text):
@@ -192,12 +215,24 @@ async def ingest_document(
     )
 
     text = normalise(extract_text(filename, content_type, data))
-    chunks = chunk_text(text)
+
+    # Ask for one more than the ceiling: if it comes back, the document needs
+    # more than we allow and is refused. Truncating instead left a knowledge
+    # base that was confidently wrong about everything past the cut, with
+    # nothing in the response to say a cut had happened.
+    chunks = chunk_text(text, max_chunks=MAX_CHUNKS_PER_DOCUMENT + 1)
     if not chunks:
         raise EmptyDocumentError(f"No usable text was found in {filename}.")
+    if len(chunks) > MAX_CHUNKS_PER_DOCUMENT:
+        raise DocumentTooLongError(
+            f"{filename} is about {len(text) // 1000}K characters, past the "
+            f"{(MAX_CHUNKS_PER_DOCUMENT * CHUNK_CHARS) // 1000}K limit. Split it and upload "
+            "the parts — a partly indexed document answers confidently about the half it has."
+        )
 
+    indexed = 0
     for index, chunk in enumerate(chunks):
-        await remember(
+        memory = await remember(
             session,
             user_id=user_id,
             content=chunk,
@@ -213,20 +248,45 @@ async def ingest_document(
                 "uploaded_at": now.isoformat(),
             },
         )
+        # `remember` sets this only after the vector reaches Qdrant, and it
+        # swallows the failure so one bad chunk cannot lose the text. That
+        # makes it the only honest signal of whether this is searchable.
+        if memory.qdrant_point_id is not None:
+            indexed += 1
+
+    if indexed == 0:
+        # The text is in Postgres, so this is not data loss — but a document
+        # that can never be retrieved is not a knowledge base entry, and
+        # returning 200 would file it as one.
+        raise IndexingUnavailableError(
+            f"{filename} was read, but none of it could be indexed for search — the vector "
+            "store did not accept it. Nothing was added to the knowledge base. Check that "
+            "Qdrant is reachable and upload again."
+        )
 
     log.info(
         "knowledge.ingested",
         document_id=str(document_id),
         filename=filename,
         chunks=len(chunks),
+        indexed=indexed,
         characters=len(text),
         trust_tag=trust_tag.value,
     )
+    if indexed < len(chunks):
+        log.warning(
+            "knowledge.partially_indexed",
+            document_id=str(document_id),
+            indexed=indexed,
+            of=len(chunks),
+        )
+
     return DocumentSummary(
         document_id=document_id,
         filename=filename,
         trust_tag=trust_tag.value,
         chunk_count=len(chunks),
+        indexed_chunks=indexed,
         characters=len(text),
         uploaded_at=now,
     )
@@ -247,6 +307,7 @@ async def list_documents(session: AsyncSession, user_id: uuid.UUID) -> list[Docu
                 Memory.attributes,
                 Memory.trust_tag,
                 Memory.created_at,
+                Memory.qdrant_point_id,
                 func.length(Memory.content).label("length"),
             ).where(
                 Memory.user_id == user_id,
@@ -256,7 +317,7 @@ async def list_documents(session: AsyncSession, user_id: uuid.UUID) -> list[Docu
     ).all()
 
     grouped: dict[str, dict[str, Any]] = {}
-    for attributes, trust_tag, created_at, length in rows:
+    for attributes, trust_tag, created_at, point_id, length in rows:
         document_id = (attributes or {}).get("document_id")
         if not document_id:
             continue  # a semantic memory that did not come from an upload
@@ -267,11 +328,13 @@ async def list_documents(session: AsyncSession, user_id: uuid.UUID) -> list[Docu
                 "filename": (attributes or {}).get("filename") or "(unnamed)",
                 "trust_tag": getattr(trust_tag, "value", str(trust_tag)),
                 "chunk_count": 0,
+                "indexed_chunks": 0,
                 "characters": 0,
                 "uploaded_at": created_at,
             },
         )
         entry["chunk_count"] += 1
+        entry["indexed_chunks"] += 1 if point_id is not None else 0
         entry["characters"] += length or 0
         entry["uploaded_at"] = min(entry["uploaded_at"], created_at)
 
@@ -282,6 +345,7 @@ async def list_documents(session: AsyncSession, user_id: uuid.UUID) -> list[Docu
                 filename=entry["filename"],
                 trust_tag=entry["trust_tag"],
                 chunk_count=entry["chunk_count"],
+                indexed_chunks=entry["indexed_chunks"],
                 characters=entry["characters"],
                 uploaded_at=entry["uploaded_at"],
             )
