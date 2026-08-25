@@ -3,7 +3,7 @@
 An agentic operations assistant for a director at a Kenyan energy company. It does three jobs:
 
 1. **Watches Gmail** and alerts him to business opportunities.
-2. **Scrapes Kenyan government and parastatal sites** twice daily for energy tenders, and sends a report.
+2. **Scrapes Kenyan government and parastatal sites** three times daily for energy tenders, and sends a report.
 3. **Reads and writes Zoho CRM.**
 
 It is **one agent with three tool groups**, not three agents. Capabilities are bound per trigger —
@@ -367,7 +367,7 @@ the Activity screen after switching.
 
 | Job | When | What |
 |---|---|---|
-| `tender_daily` | 11:00 and 17:00 | Scrape → filter → report → notify |
+| `tender_daily` | 11:00, 17:00 and 20:00 | Scrape → filter → report → notify |
 | `tender_weekly` | 08:00 Monday | Same, 72-hour lookback |
 | `maintenance` | 02:00 | Token refresh, Gmail watch renewal, expiring stale approvals |
 

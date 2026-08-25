@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from apscheduler.triggers.cron import CronTrigger
 
-from batanat_api.config import get_settings
+from batanat_api.config import Settings, get_settings
 
 TZ = "Africa/Nairobi"
 
@@ -57,13 +57,28 @@ def test_the_weekly_digest_lands_on_monday_morning(sunday_midnight) -> None:
     assert (fires[1] - fires[0]).days == 7
 
 
-def test_the_daily_sweep_runs_twice_a_day(sunday_midnight) -> None:
-    settings = get_settings()
-    fires = _fire_times(settings.tender_cron_daily, 4, after=sunday_midnight)
+def test_the_daily_sweep_runs_three_times_a_day(sunday_midnight) -> None:
+    """The *shipped* schedule, read from the field default rather than settings.
 
-    assert [(f.hour, f.minute) for f in fires] == [(11, 0), (17, 0), (11, 0), (17, 0)]
-    assert fires[0].date() == fires[1].date()
-    assert (fires[2].date() - fires[0].date()).days == 1
+    `get_settings()` resolves `.env`, so asserting exact hours against it makes
+    this test say "your machine is configured the way mine is" instead of "the
+    schedule we ship is the one documented". A developer with a custom
+    `TENDER_CRON_DAILY` would fail a test about a value they deliberately
+    changed, and CI — which has no `.env` — would pass regardless.
+    """
+    shipped = Settings.model_fields["tender_cron_daily"].default
+    fires = _fire_times(shipped, 6, after=sunday_midnight)
+
+    assert [(f.hour, f.minute) for f in fires] == [
+        (11, 0),
+        (17, 0),
+        (20, 0),
+        (11, 0),
+        (17, 0),
+        (20, 0),
+    ]
+    assert fires[0].date() == fires[1].date() == fires[2].date()
+    assert (fires[3].date() - fires[0].date()).days == 1
 
 
 def test_maintenance_runs_nightly_outside_working_hours(sunday_midnight) -> None:
