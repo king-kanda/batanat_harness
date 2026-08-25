@@ -187,6 +187,7 @@ export const api = {
 
   results: {
     emails: () => request<EmailView[]>('/api/emails'),
+    clearEmails: () => request<{ deleted: number }>('/api/emails', { method: 'DELETE' }),
     tenders: (includeClosed = false, includeOffSector = false) =>
       request<TenderView[]>(
         `/api/tenders?include_closed=${includeClosed}&include_off_sector=${includeOffSector}`,

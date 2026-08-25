@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import selectinload
 
@@ -1137,6 +1137,40 @@ async def report_recipients_put(
         cc_count=len(user.report_cc.split(",")) if user.report_cc else 0,
     )
     return _report_recipients_view(user)
+
+
+@router.delete("/emails", response_model=dict, summary="Clear the email list")
+async def clear_emails(session: SessionDep, user: CurrentUser) -> dict:
+    """Forget every email we have stored for this user.
+
+    The backfill imports thirty days of history so the screen is not empty on
+    a fresh connection, but most of that is last month's noise. Clearing draws
+    a line: what arrives from now on is what the agent was actually watching
+    for.
+
+    Only the local rows go. Nothing is touched in Gmail, and the sync cursor is
+    left alone — clearing then re-syncing must not re-import everything that
+    was just deliberately discarded.
+    """
+    from batanat_api.db.models import Feedback
+
+    ids = (await session.execute(select(Email.id).where(Email.user_id == user.id))).scalars().all()
+    if not ids:
+        return {"deleted": 0}
+
+    # Votes reference emails by id without a foreign key, so they would survive
+    # as rows pointing at nothing and skew `make eval`.
+    await session.execute(
+        delete(Feedback).where(
+            Feedback.user_id == user.id,
+            Feedback.subject_type == "email",
+            Feedback.subject_id.in_(ids),
+        )
+    )
+    await session.execute(delete(Email).where(Email.user_id == user.id))
+
+    log.info("emails.cleared", user_id=str(user.id), count=len(ids))
+    return {"deleted": len(ids)}
 
 
 # --- test sends ---------------------------------------------------------------

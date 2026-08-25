@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { ExternalLink, Loader2, ThumbsDown, ThumbsUp, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { StatusBadge } from '#/components/status-badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '#/components/ui/alert-dialog'
+import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
 import {
@@ -100,19 +112,62 @@ function priorityTone(priority: string): 'down' | 'degraded' | 'neutral' {
 }
 
 function Emails() {
+  const queryClient = useQueryClient()
   const emails = useQuery({ queryKey: ['emails'], queryFn: api.results.emails })
   const vote = useVote('email')
+
+  const clear = useMutation({
+    mutationFn: api.results.clearEmails,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emails'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+
+  const count = emails.data?.length ?? 0
 
   return (
     <Card className="gap-0 pb-0">
       <CardHeader>
-        <div>
+        <div className="min-w-0">
           <CardTitle>Classified email</CardTitle>
           <CardDescription>
             👍/👎 becomes a labelled test case — run <span className="font-mono">make eval</span>{' '}
             to see precision and recall.
           </CardDescription>
         </div>
+        {count > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={clear.isPending}>
+                {clear.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="size-3.5" aria-hidden />
+                )}
+                Clear
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear {count} classified email(s)?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Connecting Gmail imports the last 30 days so this screen is not empty, but most
+                  of that is old news. Clearing draws a line: what appears from here on is what
+                  the agent was actually watching for.
+                  <br />
+                  <br />
+                  Nothing is deleted from Gmail — only what is stored here. New mail keeps
+                  arriving.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => clear.mutate()}>Clear</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardHeader>
 
       {emails.isPending && (

@@ -115,6 +115,30 @@ async def callback(
         log.error("connection.callback.exchange_failed", provider=provider.value, detail=str(exc))
         return RedirectResponse(_settings_url(error=str(exc)), status_code=302)
 
+    # Storing the token is not connecting. Gmail needs a `users.watch` before
+    # Google publishes anything, and a backfill before the inbox shows anything
+    # — without both, a correctly configured integration looks dead.
+    #
+    # Deliberately inline rather than backgrounded: the session and its
+    # transaction belong to this request, and handing them to a task that
+    # outlives it is how you get a connection used after close. A backfill of
+    # 30 days caps at 200 messages, which is seconds, and the redirect waiting
+    # for it is the difference between landing on a populated screen and an
+    # empty one.
+    if provider is enums.Provider.gmail:
+        from batanat_api.gmail.setup import prepare_mailbox
+
+        setup = await prepare_mailbox(session, oauth_state.user_id)
+        for problem in setup.problems:
+            log.warning("connection.callback.setup_incomplete", provider="gmail", detail=problem)
+        if setup.problems:
+            # Connected, but not fully working. Say which, rather than showing
+            # a success screen over a mailbox that will never receive anything.
+            return RedirectResponse(
+                _settings_url(connected=provider.value, error="; ".join(setup.problems)),
+                status_code=302,
+            )
+
     return RedirectResponse(_settings_url(connected=provider.value), status_code=302)
 
 
