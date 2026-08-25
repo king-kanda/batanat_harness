@@ -64,10 +64,80 @@ async def handle_notification(
     return {"processed": len(result.email_ids), "resynced": result.resynced}
 
 
+#: How many messages go to the model in one run. Bounded by context, not policy.
+BATCH_SIZE = 20
+
+#: Ceiling on a single catch-up sweep, so a long-neglected mailbox cannot turn
+#: one button press into hours of model calls. What is left is picked up by the
+#: next sweep — the query is "still unclassified", so progress is never lost.
+MAX_PER_SWEEP = 200
+
+
+async def classify_pending(
+    session: AsyncSession, user_id: uuid.UUID, *, limit: int = MAX_PER_SWEEP
+) -> int:
+    """Classify every email that never got a verdict. Returns how many were tried.
+
+    Classification only ever happened to messages arriving through a sync, so
+    anything imported by a backfill — the entire inbox at connect time — stayed
+    blank forever: the cursor had already moved past it, and nothing anywhere
+    looked for `category IS NULL`.
+
+    Oldest first, so a mailbox over the ceiling makes forward progress in
+    received order rather than re-examining the same recent slice each time.
+    """
+    pending = (
+        (
+            await session.execute(
+                select(Email.id)
+                .where(Email.user_id == user_id, Email.category.is_(None))
+                .order_by(Email.received_at.asc().nulls_last())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not pending:
+        return 0
+
+    log.info("gmail.classify_pending", user_id=str(user_id), count=len(pending))
+    await run_classification(session, user_id, list(pending))
+    return len(pending)
+
+
 async def run_classification(
     session: AsyncSession, user_id: uuid.UUID, email_ids: list[uuid.UUID]
 ) -> None:
-    """One agent run over the batch of new messages."""
+    """Classify these emails, in model-sized batches, then alert on the results.
+
+    Chunked rather than truncated. This used to slice `email_ids[:20]` and drop
+    the rest silently — with the cursor already advanced, those messages were
+    unclassifiable forever, and nothing said so.
+    """
+    if not email_ids:
+        return
+
+    run_ids = []
+    for start in range(0, len(email_ids), BATCH_SIZE):
+        run_id = await _classify_batch(session, user_id, email_ids[start : start + BATCH_SIZE])
+        if run_id is not None:
+            run_ids.append(run_id)
+
+    if not run_ids:
+        return
+
+    # Alerting runs once over the whole set: the batching is an implementation
+    # detail of the model call, not something the user should hear about twice.
+    await alert_on_opportunities(session, user_id, email_ids)
+    for run_id in run_ids:
+        await alert_on_proposals(session, user_id, run_id=run_id)
+
+
+async def _classify_batch(
+    session: AsyncSession, user_id: uuid.UUID, email_ids: list[uuid.UUID]
+) -> uuid.UUID | None:
+    """One agent run over at most `BATCH_SIZE` messages. None if it did not run."""
     from batanat_api.agent.providers import get_model
     from batanat_api.agent.runner import AgentRunner
 
@@ -77,11 +147,11 @@ async def run_classification(
             "gmail.trigger.no_model",
             detail="No model API key for LLM_PROVIDER; messages stored, not classified.",
         )
-        return
+        return None
 
     client = GmailClient(session, user_id)
     payload = []
-    for email_id in email_ids[:20]:
+    for email_id in email_ids:
         email = (
             await session.execute(select(Email).where(Email.id == email_id))
         ).scalar_one_or_none()
@@ -103,6 +173,10 @@ async def run_classification(
             }
         )
 
+    if not payload:
+        # Every id in this batch has since been deleted. Nothing to run.
+        return None
+
     skill = await active_skill(session, user_id)
 
     result = await AgentRunner(model=model).run(
@@ -121,9 +195,7 @@ async def run_classification(
         skill_version_id=skill.id if skill else None,
         trigger_ref=f"history:{email_ids[0]}",
     )
-
-    await alert_on_opportunities(session, user_id, email_ids)
-    await alert_on_proposals(session, user_id, run_id=result.run_id)
+    return result.run_id
 
 
 async def alert_on_proposals(session: AsyncSession, user_id: uuid.UUID, *, run_id) -> int:
@@ -227,14 +299,21 @@ async def alert_on_opportunities(
 
 
 async def sync_now(session: AsyncSession, user_id: uuid.UUID) -> dict:
-    """The manual 'Sync now' button."""
+    """The manual 'Sync now' button.
+
+    Sweeps anything still unclassified as well as what just arrived, so this is
+    the button that repairs a mailbox whose backfill never got a verdict.
+    """
     result = await sync.sync_incremental(session, user_id)
     if result.email_ids:
         await run_classification(session, user_id, result.email_ids)
+
+    classified = await classify_pending(session, user_id)
     return {
         "new_messages": result.new_messages,
         "already_seen": result.already_seen,
         "resynced": result.resynced,
+        "backlog_classified": classified,
     }
 
 

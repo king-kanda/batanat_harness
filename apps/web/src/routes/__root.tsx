@@ -36,6 +36,7 @@ const TITLES: Record<string, string> = {
   '/settings/rules-assistant': 'Rules assistant',
   '/settings/connections': 'Connections',
   '/login': 'Sign in',
+  '/register': 'Create an account',
 }
 
 export const Route = createRootRoute({
@@ -93,6 +94,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** Reachable without a session. Anything else bounces to `/login`. */
+const PUBLIC_ROUTES = new Set(['/login', '/register'])
+
 /**
  * Routes the user to the login screen when there is no session.
  *
@@ -103,21 +107,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navigate = useNavigate()
-  const onLoginPage = pathname === '/login'
+  const isPublic = PUBLIC_ROUTES.has(pathname)
 
   const auth = useQuery({
     queryKey: ['auth-me'],
     queryFn: api.auth.me,
     retry: false,
-    enabled: !onLoginPage,
+    enabled: !isPublic,
     staleTime: 60_000,
   })
 
   useEffect(() => {
-    if (!onLoginPage && auth.isError) navigate({ to: '/login' })
-  }, [onLoginPage, auth.isError, navigate])
+    if (!isPublic && auth.isError) navigate({ to: '/login' })
+  }, [isPublic, auth.isError, navigate])
 
-  if (onLoginPage) return <>{children}</>
+  if (isPublic) return <>{children}</>
 
   if (auth.isPending || auth.isError) {
     return (

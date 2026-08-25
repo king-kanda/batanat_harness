@@ -47,6 +47,8 @@ SESSION_TTL = timedelta(days=7)
 #: address lets a botnet grind one.
 MAX_ATTEMPTS_PER_EMAIL = 10
 MAX_ATTEMPTS_PER_ADDRESS = 30
+#: Generous for a household or an office behind one NAT, useless for a loop.
+MAX_REGISTRATIONS_PER_ADDRESS = 5
 ATTEMPT_WINDOW_SECONDS = 900
 
 
@@ -147,6 +149,32 @@ async def clear_attempts(email: str, address: str) -> None:
         await get_redis().delete(f"login:email:{email.lower()}", f"login:addr:{address}")
     except Exception:  # noqa: BLE001
         pass
+
+
+async def too_many_registrations(address: str) -> bool:
+    """Count a registration attempt from one address; True once past the limit.
+
+    Registration hashes a password with scrypt before it can do anything useful,
+    which is ~0.6s of CPU and 32MB of memory *by design* — that cost is the whole
+    point of a KDF. On an endpoint that needs no session, it is also a way to
+    exhaust a small box with a loop, so the count has to happen before the hash.
+
+    A separate counter from `too_many_attempts` on purpose. Sharing one would let
+    a burst of failed logins block a legitimate sign-up from the same office, and
+    let sign-ups mask a password-grinding attempt. Keyed only by address: there
+    is no account yet, so there is no email worth counting against.
+    """
+    try:
+        client = get_redis()
+        count = await client.incr(f"register:addr:{address}")
+        if count == 1:
+            await client.expire(f"register:addr:{address}", ATTEMPT_WINDOW_SECONDS)
+        if count > MAX_REGISTRATIONS_PER_ADDRESS:
+            log.warning("register.rate_limited", address=address)
+            return True
+        return False
+    except Exception:  # noqa: BLE001 — Redis down must not stop people signing up
+        return False
 
 
 # --- cookie ------------------------------------------------------------------

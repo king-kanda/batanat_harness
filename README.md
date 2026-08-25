@@ -178,7 +178,7 @@ Off by default so a one-off script never starts cron jobs.
 
 | Job | When | What |
 |---|---|---|
-| `tender_daily` | 11:00, 17:00 | Scrape → filter → report → notify |
+| `tender_daily` | 11:00, 17:00 and 20:00 | Scrape → filter → report → notify |
 | `tender_weekly` | 08:00 Monday | Same, 72-hour lookback |
 | `maintenance` | 02:00 | Token refresh, Gmail watch renewal, expiring stale approvals |
 

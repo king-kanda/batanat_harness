@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from sqlalchemy import select
 
 from batanat_api.config import get_settings
 from batanat_api.connections import service, whatsapp
@@ -445,6 +446,96 @@ async def test_unlinking_stops_attribution(session, user) -> None:
     await session.commit()
 
     assert await whatsapp.resolve_user(session, "+254700000030") is None
+
+
+async def test_unlinking_deletes_the_row(session) -> None:
+    """Not deactivates. `phone_e164` is globally unique, so a retained row holds
+    the number hostage — no account can ever pair that handset again."""
+    owner = User(email=f"owner-{uuid.uuid4().hex[:6]}@batanat.test")
+    session.add(owner)
+    await session.flush()
+
+    issued = await whatsapp.issue_code(session, owner.id)
+    await session.commit()
+    await whatsapp.redeem_code(session, "+254700000031", issued.code)
+    await session.commit()
+
+    link = (await service.list_whatsapp_links(session, owner.id))[0]
+    await whatsapp.unlink(session, owner.id, link.id)
+    await session.commit()
+
+    remaining = (
+        (
+            await session.execute(
+                select(WhatsAppLink).where(WhatsAppLink.phone_e164 == "+254700000031")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert remaining == []
+
+
+async def test_a_released_number_can_be_linked_to_another_account(session) -> None:
+    """The number is free once released, and goes to whoever pairs it next.
+
+    Before this, unlinking left an inactive row that the pairing guard read
+    without filtering on `is_active`. The handset then got two answers to the
+    same question — pairing said "already linked to a different account", chat
+    said "not linked" — and the number was unpairable by everyone, forever.
+    """
+    first = User(email=f"first-{uuid.uuid4().hex[:6]}@batanat.test")
+    second = User(email=f"second-{uuid.uuid4().hex[:6]}@batanat.test")
+    session.add_all([first, second])
+    await session.flush()
+
+    code = await whatsapp.issue_code(session, first.id)
+    await session.commit()
+    await whatsapp.redeem_code(session, "+254700000032", code.code)
+    await session.commit()
+
+    link = (await service.list_whatsapp_links(session, first.id))[0]
+    await whatsapp.unlink(session, first.id, link.id)
+    await session.commit()
+
+    code = await whatsapp.issue_code(session, second.id)
+    await session.commit()
+    result = await whatsapp.redeem_code(session, "+254700000032", code.code)
+    await session.commit()
+
+    assert result.linked is True
+    assert await whatsapp.resolve_user(session, "+254700000032") == second.id
+    # The old owner keeps nothing — alerts must not follow a released number.
+    assert await service.list_whatsapp_links(session, first.id) == []
+
+
+async def test_an_inactive_row_does_not_block_pairing(session) -> None:
+    """Covers rows already soft-deleted by the previous behaviour.
+
+    Those are still in the database, so the fix has to repair them in place
+    rather than only preventing new ones.
+    """
+    stale_owner = User(email=f"stale-{uuid.uuid4().hex[:6]}@batanat.test")
+    claimant = User(email=f"claim-{uuid.uuid4().hex[:6]}@batanat.test")
+    session.add_all([stale_owner, claimant])
+    await session.flush()
+    session.add(
+        WhatsAppLink(
+            user_id=stale_owner.id,
+            phone_e164="+254700000033",
+            linked_at=datetime.now(UTC),
+            is_active=False,
+        )
+    )
+    await session.commit()
+
+    issued = await whatsapp.issue_code(session, claimant.id)
+    await session.commit()
+    result = await whatsapp.redeem_code(session, "+254700000033", issued.code)
+    await session.commit()
+
+    assert result.linked is True
+    assert await whatsapp.resolve_user(session, "+254700000033") == claimant.id
 
 
 async def test_an_unpaired_number_resolves_to_nobody(session) -> None:

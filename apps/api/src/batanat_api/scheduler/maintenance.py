@@ -113,9 +113,24 @@ async def prune_webhook_claims(session: AsyncSession, user_id: uuid.UUID) -> dic
     return {"pruned": await prune(session)}
 
 
+async def classify_backlog(session: AsyncSession, user_id: uuid.UUID) -> dict[str, Any]:
+    """Catch any email that never got a verdict.
+
+    The backstop rather than the mechanism: a push or a Sync now classifies what
+    it touches, and this picks up whatever those missed — a backfill at connect,
+    a batch over the per-sweep ceiling, a night when the model key was absent.
+    Without it a missed email stays blank forever, because the sync cursor has
+    already moved past it.
+    """
+    from batanat_api.triggers.gmail_trigger import classify_pending
+
+    return {"classified": await classify_pending(session, user_id)}
+
+
 TASKS = {
     "gmail_watch": renew_gmail_watch,
     "token_refresh": refresh_tokens,
+    "classify_backlog": classify_backlog,
     "source_health": check_sources,
     "expire_approvals": expire_approvals,
     "prune_webhook_claims": prune_webhook_claims,
