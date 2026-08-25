@@ -42,7 +42,13 @@ FROM python:3.12-slim-bookworm AS runtime
 RUN apt-get update \
     && apt-get install --no-install-recommends -y curl libxml2 libxslt1.1 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 10001 batanat
+    && useradd --create-home --uid 10001 batanat \
+    # The fastembed cache path has to exist here, not just in ENV below. Docker
+    # creates a volume mountpoint that is absent from the image as root, and the
+    # runtime user then cannot write to it — the model downloads on every single
+    # request and never caches. A fresh volume inherits this ownership instead.
+    && mkdir -p /home/batanat/.cache/fastembed \
+    && chown -R batanat:batanat /home/batanat/.cache
 
 WORKDIR /app
 
