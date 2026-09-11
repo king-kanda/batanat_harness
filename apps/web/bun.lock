@@ -4,11 +4,8 @@
   "workspaces": {
     "": {
       "name": "batanat-harness",
-    },
-    "apps/web": {
-      "name": "@batanat/web",
       "dependencies": {
-        "@batanat/schema": "workspace:*",
+        "@batanat/schema": "file:../../packages/schema",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-query": "^5.102.0",
         "@tanstack/react-router": "^1.170.31",
@@ -37,10 +34,6 @@
         "typescript": "^5.9.0",
         "vite": "^8.0.0",
       },
-    },
-    "packages/schema": {
-      "name": "@batanat/schema",
-      "version": "0.1.0",
     },
   },
   "packages": {
@@ -76,9 +69,7 @@
 
     "@babel/types": ["@babel/types@7.29.8", "", { "dependencies": { "@babel/helper-string-parser": "^7.29.7", "@babel/helper-validator-identifier": "^7.29.7" } }, "sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg=="],
 
-    "@batanat/schema": ["@batanat/schema@workspace:packages/schema"],
-
-    "@batanat/web": ["@batanat/web@workspace:apps/web"],
+    "@batanat/schema": ["@batanat/schema@file:../../packages/schema", {}],
 
     "@floating-ui/core": ["@floating-ui/core@1.8.0", "", { "dependencies": { "@floating-ui/utils": "^0.2.12" } }, "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ=="],
 

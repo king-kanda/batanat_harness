@@ -24,13 +24,12 @@ FROM oven/bun:1.3-alpine AS build
 
 WORKDIR /repo
 
-# The workspace root and every member's manifest, so `bun install` can resolve
-# the workspace graph before any source is copied.
-COPY package.json bun.lock* ./
-COPY apps/web/package.json ./apps/web/
+# The web package is standalone; the schema is a local file dependency outside
+# the app directory, so the build context remains the repository root.
+COPY apps/web/package.json apps/web/bun.lock ./apps/web/
 COPY packages/schema/package.json ./packages/schema/
 
-RUN bun install --frozen-lockfile
+RUN cd apps/web && bun install --frozen-lockfile
 
 COPY packages/schema ./packages/schema
 COPY apps/web ./apps/web

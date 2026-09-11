@@ -35,7 +35,7 @@ tools: ## Install uv into a project-local venv (no system changes)
 .PHONY: install
 install: ## Install all dependencies
 	cd $(API_DIR) && $(abspath $(UV)) sync --all-groups
-	bun install
+	cd $(WEB_DIR) && bun install --frozen-lockfile
 
 # --- run ---------------------------------------------------------------------
 

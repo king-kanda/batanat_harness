@@ -13,7 +13,7 @@
     "generate-routes": "tsr generate"
   },
   "dependencies": {
-    "@batanat/schema": "workspace:*",
+    "@batanat/schema": "file:../../packages/schema",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query": "^5.102.0",
     "@tanstack/react-router": "^1.170.31",

@@ -21,13 +21,12 @@ const config = defineConfig({
     __BUILD_TIME__: JSON.stringify(process.env.BUILD_TIME ?? ''),
   },
   plugins: [
-    // `preset` is pinned, not left to auto-detection. Nitro picks its target
-    // from whatever runs the build, and the build stage is `oven/bun`, so it
-    // emitted a bundle calling `Bun.serve`. The runtime stage is node:22, which
-    // has no `Bun` global — the container crash-looped on
-    // `ReferenceError: Bun is not defined` and nginx served 502s. Build tool and
-    // runtime are deliberately different here; this is what keeps them apart.
-    nitro({ preset: 'node', rollupConfig: { external: [/^@sentry\//] } }),
+    // Keep the container on Nitro's Node server output, while Vercel receives
+    // its Build Output API bundle and serverless function files.
+    nitro({
+      preset: process.env.VERCEL ? 'vercel' : 'node',
+      rollupConfig: { external: [/^@sentry\//] },
+    }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),
