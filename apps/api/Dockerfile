@@ -79,9 +79,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD curl -fsS "http://localhost:${API_PORT:-8000}/api/health" || exit 1
 
-# Migrations are deliberately NOT run here. With more than one replica they
-# would race; the compose file and the CD pipeline run them as a separate
-# one-shot step before the API starts.
+# Render's free tier does not provide a shell or a separate one-off migration
+# job, so the single API instance applies migrations before it starts serving.
+# Keep this service at one instance while migrations run here; multiple
+# instances can race during startup.
 #
 # API_HOST/API_PORT are read here rather than hardcoded. They were literal
 # flags, which meant the values in the compose files were silently ignored:
@@ -90,5 +91,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # also forced 0.0.0.0 in production, where host networking then published the
 # API straight onto the public interface past nginx and TLS.
 #
-# `exec` so uvicorn is PID 1 and receives SIGTERM on `docker stop`.
-CMD ["sh", "-c", "exec uvicorn batanat_api.main:app --host \"${API_HOST:-0.0.0.0}\" --port \"${API_PORT:-8000}\""]
+# `exec` so uvicorn is PID 1 and receives SIGTERM on `docker stop`. Render
+# supplies PORT; the fallback keeps local Docker and Compose working.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn batanat_api.main:app --host \"${API_HOST:-0.0.0.0}\" --port \"${PORT:-${API_PORT:-8000}}\""]
