@@ -176,11 +176,14 @@ async def seed() -> None:
     await ensure_indexes()
 
     settings = get_settings()
-    print(
-        f"\nSign in at {settings.web_public_url}/login\n"
-        f"  email    {settings.default_user_email}\n"
-        f"  password {settings.default_user_password}\n"
-    )
+    if settings.is_local:
+        print(
+            f"\nSign in at {settings.web_public_url}/login\n"
+            f"  email    {settings.default_user_email}\n"
+            f"  password {settings.default_user_password}\n"
+        )
+    else:
+        log.info("seed.complete", email=settings.default_user_email)
 
 
 def main() -> None:

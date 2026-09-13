@@ -92,5 +92,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # API straight onto the public interface past nginx and TLS.
 #
 # `exec` so uvicorn is PID 1 and receives SIGTERM on `docker stop`. Render
-# supplies PORT; the fallback keeps local Docker and Compose working.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn batanat_api.main:app --host \"${API_HOST:-0.0.0.0}\" --port \"${PORT:-${API_PORT:-8000}}\""]
+# supplies PORT; the fallback keeps local Docker and Compose working. Seeding
+# is idempotent and restores missing tender-source rows on every deployment.
+CMD ["sh", "-c", "alembic upgrade head && python -m batanat_api.db.seed && exec uvicorn batanat_api.main:app --host \"${API_HOST:-0.0.0.0}\" --port \"${PORT:-${API_PORT:-8000}}\""]
