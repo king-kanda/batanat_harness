@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from time import perf_counter
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +48,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         demo_mode=settings.demo_mode,
         kill_switch=settings.kill_switch,
     )
+
+    # Redis backs sessions, webhook debouncing, rate limits, and scheduler
+    # locks. Check it explicitly so deployment logs show its state before the
+    # first request or scheduled job depends on it.
+    try:
+        from batanat_api.core.redis import get_redis
+
+        started = perf_counter()
+        redis = get_redis()
+        await redis.ping()
+        info = await redis.info("server")
+        log.info(
+            "redis.startup",
+            version=info.get("redis_version", "unknown"),
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+        )
+    except Exception as exc:  # noqa: BLE001 — health endpoint reports it later
+        log.error("redis.startup_failed", error_type=type(exc).__name__)
 
     # Provision the database on first run. A failure here is not fatal: the app
     # still serves the health page, which is where the operator finds out why.
