@@ -16,6 +16,23 @@ import { humanise } from '#/lib/labels'
 
 export const Route = createFileRoute('/settings/sources')({ component: Sources })
 
+const SCHEDULE_LABELS: Record<string, string> = {
+  tender_daily: 'Daily tender sweep',
+  tender_weekly: 'Weekly tender sweep',
+  maintenance: 'Maintenance',
+}
+
+const NAIROBI_TIME_FORMATTER = new Intl.DateTimeFormat('en-KE', {
+  timeZone: 'Africa/Nairobi',
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+function formatScheduleTime(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : NAIROBI_TIME_FORMATTER.format(date)
+}
+
 function Sources() {
   const queryClient = useQueryClient()
   const sources = useQuery({ queryKey: ['sources'], queryFn: api.sources.list })
@@ -102,10 +119,14 @@ function Sources() {
                 dashboard.data.next_runs.map((job) => (
                   <div
                     key={job.id}
-                    className="text-muted-foreground flex flex-wrap justify-between gap-2"
+                    className="border-border flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-2 last:border-0"
                   >
-                    <span className="font-mono">{job.id}</span>
-                    <span className="tabular">{job.next_run_at}</span>
+                    <span className="text-foreground font-medium">
+                      {SCHEDULE_LABELS[job.id] ?? humanise(job.id)}
+                    </span>
+                    <time className="text-muted-foreground tabular" dateTime={job.next_run_at}>
+                      {formatScheduleTime(job.next_run_at)}
+                    </time>
                   </div>
                 ))
               ) : (
