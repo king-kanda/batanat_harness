@@ -37,6 +37,8 @@ const TITLES: Record<string, string> = {
   '/settings/connections': 'Connections',
   '/login': 'Sign in',
   '/register': 'Create an account',
+  '/forgot-password': 'Reset your password',
+  '/reset-password': 'Choose a new password',
 }
 
 export const Route = createRootRoute({
@@ -95,7 +97,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 }
 
 /** Reachable without a session. Anything else bounces to `/login`. */
-const PUBLIC_ROUTES = new Set(['/login', '/register'])
+const PUBLIC_ROUTES = new Set([
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+])
 
 /**
  * Routes the user to the login screen when there is no session.
