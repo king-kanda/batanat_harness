@@ -39,7 +39,18 @@ import { useOnboarding } from '#/lib/onboarding'
 /** Day to day: the things you act on. */
 const WORK = [
   { to: '/', label: 'Chat', icon: MessageSquare },
-  { to: '/opportunities', label: 'Opportunities', icon: ListChecks },
+  {
+    to: '/opportunities',
+    label: 'Emails',
+    icon: Mail,
+    search: { view: 'emails' as const },
+  },
+  {
+    to: '/opportunities',
+    label: 'Tenders',
+    icon: ListChecks,
+    search: { view: 'tenders' as const },
+  },
   { to: '/approvals', label: 'CRM approvals', icon: CheckSquare },
 ] as const
 
@@ -66,6 +77,7 @@ const GROUPS = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const search = useRouterState({ select: (s) => s.location.search })
 
   // The two numbers worth carrying in the chrome: work waiting on a human, and
   // whether anything is broken. Everything else lives on its own screen.
@@ -139,14 +151,22 @@ export function AppSidebar() {
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {group.items.map(({ to, label, icon: Icon }) => (
-                    <SidebarMenuItem key={to}>
+                  {group.items.map((item) => {
+                    const { to, label, icon: Icon } = item
+                    const itemSearch = 'search' in item ? item.search : undefined
+                    return (
+                    <SidebarMenuItem key={`${to}-${label}`}>
                       <SidebarMenuButton
                         asChild
-                        isActive={to === '/' ? pathname === '/' : pathname.startsWith(to)}
+                        isActive={
+                          to === '/'
+                            ? pathname === '/'
+                            : pathname.startsWith(to) &&
+                              (!itemSearch || search.view === itemSearch.view)
+                        }
                         tooltip={label}
                       >
-                        <Link to={to}>
+                        <Link to={to} search={itemSearch}>
                           <Icon />
                           <span>{label}</span>
                         </Link>
@@ -157,7 +177,8 @@ export function AppSidebar() {
                         </SidebarMenuBadge>
                       )}
                     </SidebarMenuItem>
-                  ))}
+                    )
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

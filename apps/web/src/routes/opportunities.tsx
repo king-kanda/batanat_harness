@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Download, ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 
@@ -26,7 +26,14 @@ import { api, type EmailDetail } from '#/lib/api'
 import { humanise } from '#/lib/labels'
 import { cn } from '#/lib/utils'
 
-export const Route = createFileRoute('/opportunities')({ component: Opportunities })
+type OpportunityView = 'emails' | 'tenders'
+
+export const Route = createFileRoute('/opportunities')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: search.view === 'tenders' ? 'tenders' : 'emails',
+  }),
+  component: Opportunities,
+})
 
 const CATEGORY_TONE = {
   opportunity: 'ok',
@@ -38,8 +45,17 @@ const CATEGORY_TONE = {
 } as const
 
 function Opportunities() {
+  const navigate = useNavigate()
+  const { view } = Route.useSearch()
+
   return (
-    <Tabs defaultValue="emails" className="space-y-4">
+    <Tabs
+      value={view}
+      onValueChange={(value) =>
+        navigate({ to: '/opportunities', search: { view: value as OpportunityView } })
+      }
+      className="space-y-4"
+    >
       <TabsList data-tour="opportunities-panel">
         <TabsTrigger value="emails">From email</TabsTrigger>
         <TabsTrigger value="tenders">From tenders</TabsTrigger>
