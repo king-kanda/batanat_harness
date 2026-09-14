@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import selectinload
@@ -74,6 +75,53 @@ from batanat_api.tenders.relevance import RELEVANT_AT
 log = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["operations"])
+
+
+class UserServiceStatsView(BaseModel):
+    id: str
+    email: str
+    name: str | None
+    last_login_at: datetime | None
+    email_count: int
+    connection_count: int
+    gmail_connected: bool
+    tender_catalog_count: int
+
+
+@router.get("/bataxxd/users", response_model=list[UserServiceStatsView])
+async def user_service_stats(_: CurrentUser, session: SessionDep) -> list[UserServiceStatsView]:
+    """Return lightweight service stats for the hidden authenticated dashboard."""
+    email_count = func.count(func.distinct(Email.id)).label("email_count")
+    connection_count = func.count(func.distinct(Connection.id)).label("connection_count")
+    rows = (
+        await session.execute(
+            select(
+                User,
+                email_count,
+                connection_count,
+                func.bool_or(Connection.provider == enums.Provider.gmail).label("gmail_connected"),
+            )
+            .outerjoin(Email, Email.user_id == User.id)
+            .outerjoin(Connection, Connection.user_id == User.id)
+            .where(User.is_active.is_(True))
+            .group_by(User.id)
+            .order_by(User.email.asc())
+        )
+    ).all()
+    tender_count = await session.scalar(select(func.count(Tender.id))) or 0
+    return [
+        UserServiceStatsView(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            last_login_at=user.last_login_at,
+            email_count=email_total,
+            connection_count=connection_total,
+            gmail_connected=bool(gmail_connected),
+            tender_catalog_count=tender_count,
+        )
+        for user, email_total, connection_total, gmail_connected in rows
+    ]
 
 
 # --- serialisation helpers ---------------------------------------------------

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as BataxxdRouteImport } from './routes/bataxxd'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
@@ -40,6 +41,11 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BataxxdRoute = BataxxdRouteImport.update({
+  id: '/bataxxd',
+  path: '/bataxxd',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/bataxxd': typeof BataxxdRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/bataxxd': typeof BataxxdRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/bataxxd': typeof BataxxdRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/bataxxd'
     | '/forgot-password'
     | '/login'
     | '/memory'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/bataxxd'
     | '/forgot-password'
     | '/login'
     | '/memory'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/bataxxd'
     | '/forgot-password'
     | '/login'
     | '/memory'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
+  BataxxdRoute: typeof BataxxdRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MemoryRoute: typeof MemoryRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bataxxd': {
+      id: '/bataxxd'
+      path: '/bataxxd'
+      fullPath: '/bataxxd'
+      preLoaderRoute: typeof BataxxdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
+  BataxxdRoute: BataxxdRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MemoryRoute: MemoryRoute,

@@ -156,6 +156,17 @@ export type CurrentUser = {
   using_default_password: boolean
 }
 
+export type UserServiceStats = {
+  id: string
+  email: string
+  name: string | null
+  last_login_at: string | null
+  email_count: number
+  connection_count: number
+  gmail_connected: boolean
+  tender_catalog_count: number
+}
+
 export const api = {
   auth: {
     me: () => request<CurrentUser>('/api/auth/me'),
@@ -176,6 +187,10 @@ export const api = {
         confirm_password: confirmPassword,
       }),
     logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+  },
+
+  bataxxd: {
+    users: () => request<UserServiceStats[]>('/api/bataxxd/users'),
   },
 
   health: () => request<HealthResponse>('/api/health', { tolerate: [503] }),
