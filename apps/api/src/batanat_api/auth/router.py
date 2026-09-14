@@ -13,7 +13,8 @@ Three deliberate details, each easy to undo by accident:
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+import secrets
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field, model_validator
@@ -24,6 +25,8 @@ from batanat_api.auth import sessions
 from batanat_api.core.deps import SessionDep
 from batanat_api.core.logging import get_logger
 from batanat_api.db.models import SkillVersion, User
+from batanat_api.db.models import PasswordResetToken
+from batanat_api.notifications.email_sender import send_direct_email
 from batanat_api.security.passwords import (
     hash_password,
     needs_rehash,
@@ -40,6 +43,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 DUMMY_HASH = hash_password("no-account-with-this-address")
 
 GENERIC_FAILURE = "That email and password do not match an account."
+RESET_REQUEST_MESSAGE = "If an account exists for that email, a reset link has been sent."
 
 
 class LoginRequest(BaseModel):
@@ -47,8 +51,24 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
 #: Short enough not to be a nuisance, long enough that scrypt is doing real work.
 MIN_PASSWORD_LENGTH = 8
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=32, max_length=200)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=200)
+    confirm_password: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _passwords_match(self) -> PasswordResetConfirm:
+        if self.password != self.confirm_password:
+            raise ValueError("The two passwords do not match.")
+        return self
 
 
 class RegisterRequest(BaseModel):
@@ -143,6 +163,60 @@ async def login(
 
     log.info("login.ok", user_id=str(user.id))
     return _view(user)
+
+
+@router.post("/forgot-password", summary="Request a password reset")
+async def forgot_password(body: PasswordResetRequest, session: SessionDep) -> dict[str, str]:
+    user = (
+        await session.execute(select(User).where(func_lower(User.email) == body.email.lower()))
+    ).scalar_one_or_none()
+    if user is not None and user.is_active:
+        raw_token = secrets.token_urlsafe(48)
+        reset = PasswordResetToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+            expires_at=datetime.now(UTC) + timedelta(minutes=30),
+        )
+        session.add(reset)
+        await session.flush()
+        from batanat_api.config import get_settings
+
+        link = f"{get_settings().web_public_url.rstrip('/')}/reset-password?token={raw_token}"
+        await send_direct_email(
+            to=user.email,
+            subject="Reset your Batanat Harness password",
+            html=(
+                "<p>We received a request to reset your Batanat Harness password.</p>"
+                f'<p><a href="{link}">Reset your password</a></p>'
+                "<p>This link expires in 30 minutes and can only be used once.</p>"
+            ),
+        )
+    return {"message": RESET_REQUEST_MESSAGE}
+
+
+@router.post("/reset-password", summary="Set a new password")
+async def reset_password(body: PasswordResetConfirm, session: SessionDep) -> dict[str, str]:
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+    reset = (
+        await session.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.token_hash == token_hash,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > datetime.now(UTC),
+            )
+        )
+    ).scalar_one_or_none()
+    if reset is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This reset link is invalid or expired.")
+    user = (
+        await session.execute(select(User).where(User.id == reset.user_id, User.is_active.is_(True)))
+    ).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This reset link is invalid or expired.")
+    set_password(user, body.password)
+    reset.used_at = datetime.now(UTC)
+    await session.flush()
+    return {"message": "Password reset. You can now sign in."}
 
 
 @router.post(

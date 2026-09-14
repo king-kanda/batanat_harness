@@ -89,6 +89,21 @@ class User(Base, TimestampMixin):
     )
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (Index("ix_password_reset_tokens_user_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship()
+
+
 # ---------------------------------------------------------------------------
 # Connections and credentials
 # ---------------------------------------------------------------------------

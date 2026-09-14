@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Loader2, TriangleAlert } from 'lucide-react'
+import { Eye, EyeOff, Loader2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '#/components/ui/button'
@@ -21,6 +21,8 @@ function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createAccount = useMutation({
@@ -80,14 +82,26 @@ function Register() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                  </button>
+                </div>
                 {tooShort && (
                   <p className="text-muted-foreground text-xs">
                     At least {MIN_PASSWORD_LENGTH} characters.
@@ -97,15 +111,27 @@ function Register() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-password">Confirm password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  aria-invalid={mismatch}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pr-10"
+                    aria-invalid={mismatch}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+                    onClick={() => setShowConfirmPassword((visible) => !visible)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                  </button>
+                </div>
                 {mismatch && (
                   <p className="text-status-down text-xs">The two passwords do not match.</p>
                 )}

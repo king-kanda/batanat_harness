@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as OpportunitiesRouteImport } from './routes/opportunities'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsKnowledgeRouteImport } from './routes/settings.knowledge'
@@ -38,6 +40,11 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -63,6 +70,11 @@ const OpportunitiesRoute = OpportunitiesRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -105,11 +117,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -122,11 +136,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -140,11 +156,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
   '/audit': typeof AuditRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/memory': typeof MemoryRoute
   '/onboarding': typeof OnboardingRoute
   '/opportunities': typeof OpportunitiesRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/rules': typeof RulesRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/knowledge': typeof SettingsKnowledgeRoute
@@ -159,11 +177,13 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/forgot-password'
     | '/login'
     | '/memory'
     | '/onboarding'
     | '/opportunities'
     | '/register'
+    | '/reset-password'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -176,11 +196,13 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/forgot-password'
     | '/login'
     | '/memory'
     | '/onboarding'
     | '/opportunities'
     | '/register'
+    | '/reset-password'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -193,11 +215,13 @@ export interface FileRouteTypes {
     | '/'
     | '/approvals'
     | '/audit'
+    | '/forgot-password'
     | '/login'
     | '/memory'
     | '/onboarding'
     | '/opportunities'
     | '/register'
+    | '/reset-password'
     | '/rules'
     | '/settings/connections'
     | '/settings/knowledge'
@@ -211,11 +235,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MemoryRoute: typeof MemoryRoute
   OnboardingRoute: typeof OnboardingRoute
   OpportunitiesRoute: typeof OpportunitiesRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   RulesRoute: typeof RulesRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsKnowledgeRoute: typeof SettingsKnowledgeRoute
@@ -246,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -281,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -339,11 +379,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MemoryRoute: MemoryRoute,
   OnboardingRoute: OnboardingRoute,
   OpportunitiesRoute: OpportunitiesRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   RulesRoute: RulesRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsKnowledgeRoute: SettingsKnowledgeRoute,
@@ -355,12 +397,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

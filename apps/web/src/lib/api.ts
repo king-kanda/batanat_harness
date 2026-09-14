@@ -161,6 +161,14 @@ export const api = {
     me: () => request<CurrentUser>('/api/auth/me'),
     login: (email: string, password: string) =>
       post<CurrentUser>('/api/auth/login', { email, password }),
+    forgotPassword: (email: string) =>
+      post<{ message: string }>('/api/auth/forgot-password', { email }),
+    resetPassword: (token: string, password: string, confirmPassword: string) =>
+      post<{ message: string }>('/api/auth/reset-password', {
+        token,
+        password,
+        confirm_password: confirmPassword,
+      }),
     register: (email: string, password: string, confirmPassword: string) =>
       post<CurrentUser>('/api/auth/register', {
         email,

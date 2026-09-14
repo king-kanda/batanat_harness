@@ -166,3 +166,41 @@ async def send_email(
         subject=subject[:80],
     )
     return True, None
+
+
+async def send_direct_email(*, to: str, subject: str, html: str) -> tuple[bool, str | None]:
+    """Send a transactional message to one explicit address."""
+    settings = get_settings()
+    if not settings.sendgrid_api_key:
+        return False, "SENDGRID_API_KEY is not set."
+    if not settings.report_from_email:
+        return False, "REPORT_FROM_EMAIL is not set."
+
+    payload = {
+        "personalizations": [{"to": [{"email": to}]}],
+        "from": {
+            "email": settings.report_from_email,
+            "name": settings.report_from_name or "Batanat Harness",
+        },
+        "subject": subject,
+        "content": [{"type": "text/html", "value": html}],
+    }
+    if settings.report_reply_to:
+        payload["reply_to"] = {"email": settings.report_reply_to}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                SENDGRID_ENDPOINT,
+                headers={"Authorization": f"Bearer {settings.sendgrid_api_key}"},
+                json=payload,
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.error("email.send_failed", error_type=type(exc).__name__)
+        return False, f"{type(exc).__name__}: {exc}"
+
+    if response.status_code != 202:
+        log.error("email.rejected", status_code=response.status_code)
+        return False, f"SendGrid returned HTTP {response.status_code}"
+    log.info("email.sent", recipients=1, subject=subject[:80])
+    return True, None

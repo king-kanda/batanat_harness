@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { Loader2, TriangleAlert } from 'lucide-react'
+import { Eye, EyeOff, Loader2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '#/components/ui/button'
@@ -27,6 +27,7 @@ function Login() {
   const router = useRouter()
   const [email, setEmail] = useState(import.meta.env.DEV ? DEV_EMAIL : '')
   const [password, setPassword] = useState(import.meta.env.DEV ? DEV_PASSWORD : '')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const signIn = useMutation({
@@ -80,14 +81,26 @@ function Login() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                  </button>
+                </div>
               </div>
 
               {error && (
@@ -101,6 +114,12 @@ function Login() {
                 {signIn.isPending && <Loader2 className="size-4 animate-spin" aria-hidden />}
                 Sign in
               </Button>
+              <Link
+                to="/forgot-password"
+                className="text-muted-foreground hover:text-foreground block text-center text-sm underline underline-offset-4"
+              >
+                Forgot password?
+              </Link>
             </form>
           </CardContent>
         </Card>
