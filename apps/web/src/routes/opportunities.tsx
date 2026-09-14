@@ -1,21 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Download, ExternalLink, Loader2, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { Download, ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 
 import { StatusBadge } from '#/components/status-badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '#/components/ui/alert-dialog'
-import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card'
 import { Empty } from '#/components/ui/empty'
 import {
@@ -27,7 +15,14 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { api } from '#/lib/api'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '#/components/ui/sheet'
+import { api, type EmailDetail } from '#/lib/api'
 import { humanise } from '#/lib/labels'
 import { cn } from '#/lib/utils'
 
@@ -112,7 +107,6 @@ function priorityTone(priority: string): 'down' | 'degraded' | 'neutral' {
 }
 
 function Emails() {
-  const queryClient = useQueryClient()
   const emails = useQuery({ queryKey: ['emails'], queryFn: api.results.emails })
   const vote = useVote('email')
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
@@ -121,16 +115,6 @@ function Emails() {
     queryFn: () => api.results.email(selectedEmailId!),
     enabled: selectedEmailId !== null,
   })
-
-  const clear = useMutation({
-    mutationFn: api.results.clearEmails,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['emails'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    },
-  })
-
-  const count = emails.data?.length ?? 0
 
   return (
     <Card className="gap-0 pb-0">
@@ -142,38 +126,6 @@ function Emails() {
             to see precision and recall.
           </CardDescription>
         </div>
-        {count > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={clear.isPending}>
-                {clear.isPending ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Trash2 className="size-3.5" aria-hidden />
-                )}
-                Clear
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear {count} classified email(s)?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Connecting Gmail imports the last 30 days so this screen is not empty, but most
-                  of that is old news. Clearing draws a line: what appears from here on is what
-                  the agent was actually watching for.
-                  <br />
-                  <br />
-                  Nothing is deleted from Gmail — only what is stored here. New mail keeps
-                  arriving.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => clear.mutate()}>Clear</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
       </CardHeader>
 
       {emails.isPending && (
@@ -186,9 +138,14 @@ function Emails() {
         </Empty>
       )}
 
-      {selectedEmailId && (
-        <EmailReader detail={detail.data} loading={detail.isPending} onClose={() => setSelectedEmailId(null)} />
-      )}
+      <EmailReader
+        detail={detail.data}
+        loading={detail.isPending}
+        open={selectedEmailId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEmailId(null)
+        }}
+      />
 
       {!!emails.data?.length && (
         <Table className="table-fixed">
@@ -309,53 +266,55 @@ function Emails() {
 function EmailReader({
   detail,
   loading,
-  onClose,
+  open,
+  onOpenChange,
 }: {
-  detail: ReturnType<typeof api.results.email> extends Promise<infer T> ? T | undefined : never
+  detail: EmailDetail | undefined
   loading: boolean
-  onClose: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   return (
-    <Card className="mb-4">
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <div className="min-w-0">
-          <CardTitle>{loading ? 'Loading thread…' : detail?.subject ?? '(no subject)'}</CardTitle>
-          {!loading && detail && <CardDescription>{detail.messages.length} message(s)</CardDescription>}
-        </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close email reader">
-          <X aria-hidden />
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {loading && <p className="text-muted-foreground text-sm">Fetching the email thread…</p>}
-        {detail?.messages.map((message) => (
-          <article key={message.id} className="border-border rounded-md border p-4">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-xs">
-              <span className="font-medium">{message.from_name ?? message.from_address ?? 'Unknown sender'}</span>
-              <time className="text-muted-foreground">
-                {message.received_at ? new Date(message.received_at).toLocaleString() : 'Undated'}
-              </time>
-            </div>
-            <p className="whitespace-pre-wrap text-sm leading-6">{message.body || '(no text)'}</p>
-            {message.attachments.length > 0 && (
-              <div className="border-border mt-4 flex flex-wrap gap-2 border-t pt-3">
-                {message.attachments.map((attachment) => (
-                  <a
-                    key={attachment.attachment_id}
-                    href={api.results.attachmentUrl(detail.id, message.id, attachment.attachment_id)}
-                    className="border-border hover:bg-muted inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
-                    download={attachment.filename}
-                  >
-                    <Download className="size-3.5" aria-hidden />
-                    {attachment.filename}
-                  </a>
-                ))}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader className="border-border border-b pr-12">
+          <SheetTitle>{loading ? 'Loading thread…' : detail?.subject ?? '(no subject)'}</SheetTitle>
+          <SheetDescription>
+            {loading ? 'Fetching the email thread…' : `${detail?.messages.length ?? 0} message(s)`}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="space-y-4 p-4">
+          {detail?.messages.map((message) => (
+            <article key={message.id} className="border-border rounded-md border p-4">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                <span className="font-medium">
+                  {message.from_name ?? message.from_address ?? 'Unknown sender'}
+                </span>
+                <time className="text-muted-foreground">
+                  {message.received_at ? new Date(message.received_at).toLocaleString() : 'Undated'}
+                </time>
               </div>
-            )}
-          </article>
-        ))}
-      </CardContent>
-    </Card>
+              <p className="whitespace-pre-wrap text-sm leading-6">{message.body || '(no text)'}</p>
+              {message.attachments.length > 0 && (
+                <div className="border-border mt-4 flex flex-wrap gap-2 border-t pt-3">
+                  {message.attachments.map((attachment) => (
+                    <a
+                      key={attachment.attachment_id}
+                      href={api.results.attachmentUrl(detail.id, message.id, attachment.attachment_id)}
+                      className="border-border hover:bg-muted inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                      download={attachment.filename}
+                    >
+                      <Download className="size-3.5" aria-hidden />
+                      {attachment.filename}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
