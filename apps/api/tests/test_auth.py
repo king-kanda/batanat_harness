@@ -201,7 +201,7 @@ async def test_session_tokens_are_unguessable() -> None:
 
 
 def test_local_tolerates_the_development_default() -> None:
-    Settings(app_env="local", default_user_password="batanat-dev").assert_safe_for_environment()
+    Settings(app_env="local", default_admin_password="batanat-dev").assert_safe_for_environment()
 
 
 @pytest.mark.parametrize("environment", ["staging", "production"])
@@ -209,7 +209,7 @@ def test_shipping_the_default_password_fails_the_boot(environment: str) -> None:
     """A default password that ships is not a default, it is a backdoor."""
     settings = Settings(
         app_env=environment,
-        default_user_password="batanat-dev",
+        default_admin_password="batanat-dev",
         session_secret="set",
         token_encryption_key="set",
     )
@@ -220,7 +220,7 @@ def test_shipping_the_default_password_fails_the_boot(environment: str) -> None:
 def test_missing_secrets_also_fail_the_boot() -> None:
     settings = Settings(
         app_env="production",
-        default_user_password="a-real-one",
+        default_admin_password="a-real-one",
         session_secret=None,
         token_encryption_key=None,
     )
@@ -231,7 +231,7 @@ def test_missing_secrets_also_fail_the_boot() -> None:
 def test_a_properly_configured_production_passes() -> None:
     Settings(
         app_env="production",
-        default_user_password="a-real-one",
+        default_admin_password="a-real-one",
         session_secret="s",
         token_encryption_key="k",
     ).assert_safe_for_environment()

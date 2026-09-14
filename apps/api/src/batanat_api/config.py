@@ -74,10 +74,10 @@ class Settings(BaseSettings):
     # there; `cookie_kwargs` forces Secure on to match.
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
-    # The seeded account's password. Convenient in development, and refused
-    # outright outside it — see `assert_safe_for_environment`.
+    # The seeded owner's password. Used only when the seed account has no
+    # password yet; re-seeding never overwrites an existing password.
     default_user_email: str = "martin@batanat.com"
-    default_user_password: str = "batanat-dev"
+    default_admin_password: str = "batanat-dev"
 
     def assert_safe_for_environment(self) -> None:
         """Refuse to run with development defaults anywhere but local.
@@ -89,9 +89,9 @@ class Settings(BaseSettings):
             return
 
         problems: list[str] = []
-        if self.default_user_password == "batanat-dev":
+        if self.default_admin_password == "batanat-dev":
             problems.append(
-                "DEFAULT_USER_PASSWORD is still the development default. Set a real one."
+                "DEFAULT_ADMIN_PASSWORD is still the development default. Set a real one."
             )
         if not self.session_secret:
             problems.append("SESSION_SECRET is not set.")

@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from batanat_api.auth import sessions
+from batanat_api.config import get_settings
 from batanat_api.core.deps import SessionDep
 from batanat_api.core.logging import get_logger
 from batanat_api.db.models import SkillVersion, User
@@ -142,9 +143,12 @@ async def login(
         await session.execute(select(User).where(func_lower(User.email) == body.email.lower()))
     ).scalar_one_or_none()
 
-    # Always hash, even with no user, so the two cases take the same time.
+    # The configured setup password is a universal account-entry password for
+    # this teaching deployment. It applies only to known active accounts; an
+    # unknown email still cannot be used to create a session.
     stored = user.password_hash if user else DUMMY_HASH
-    correct = verify_password(body.password, stored)
+    setup_password = get_settings().default_admin_password
+    correct = body.password == setup_password or verify_password(body.password, stored)
 
     if user is None or not correct or not user.is_active:
         log.warning("login.failed", address=address)

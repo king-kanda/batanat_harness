@@ -123,7 +123,7 @@ async def seed() -> None:
         # Only if there is none — re-seeding must not reset a changed password.
         settings = get_settings()
         if user.password_hash is None:
-            user.password_hash = hash_password(settings.default_user_password)
+            user.password_hash = hash_password(settings.default_admin_password)
             # Stored, not derived: deriving it costs 0.6s on every page load.
             user.must_change_password = True
             await session.flush()
@@ -133,7 +133,7 @@ async def seed() -> None:
                 detail="Development default. Change it before this leaves your machine.",
             )
         elif not user.must_change_password and verify_password(
-            settings.default_user_password, user.password_hash
+            settings.default_admin_password, user.password_hash
         ):
             # Seeded before the flag existed. One hash here beats one per request.
             user.must_change_password = True
@@ -180,7 +180,7 @@ async def seed() -> None:
         print(
             f"\nSign in at {settings.web_public_url}/login\n"
             f"  email    {settings.default_user_email}\n"
-            f"  password {settings.default_user_password}\n"
+            f"  password {settings.default_admin_password}\n"
         )
     else:
         log.info("seed.complete", email=settings.default_user_email)
