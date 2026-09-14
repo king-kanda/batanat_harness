@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ExternalLink, Loader2, ThumbsDown, ThumbsUp, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, Loader2, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { StatusBadge } from '#/components/status-badge'
@@ -115,6 +115,12 @@ function Emails() {
   const queryClient = useQueryClient()
   const emails = useQuery({ queryKey: ['emails'], queryFn: api.results.emails })
   const vote = useVote('email')
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
+  const detail = useQuery({
+    queryKey: ['email', selectedEmailId],
+    queryFn: () => api.results.email(selectedEmailId!),
+    enabled: selectedEmailId !== null,
+  })
 
   const clear = useMutation({
     mutationFn: api.results.clearEmails,
@@ -180,6 +186,10 @@ function Emails() {
         </Empty>
       )}
 
+      {selectedEmailId && (
+        <EmailReader detail={detail.data} loading={detail.isPending} onClose={() => setSelectedEmailId(null)} />
+      )}
+
       {!!emails.data?.length && (
         <Table className="table-fixed">
           {/* `table-fixed`: under auto layout a `w-*` on a column is a
@@ -233,9 +243,13 @@ function Emails() {
 
                 <TableCell className="whitespace-normal">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium wrap-anywhere">
+                    <button
+                      type="button"
+                      className="hover:text-primary text-left text-sm font-medium wrap-anywhere"
+                      onClick={() => setSelectedEmailId(email.id)}
+                    >
                       {email.subject ?? '(no subject)'}
-                    </div>
+                    </button>
                     <div className="text-muted-foreground text-xs wrap-anywhere">
                       {email.from_name ?? email.from_address}
                     </div>
@@ -288,6 +302,59 @@ function Emails() {
           </TableBody>
         </Table>
       )}
+    </Card>
+  )
+}
+
+function EmailReader({
+  detail,
+  loading,
+  onClose,
+}: {
+  detail: ReturnType<typeof api.results.email> extends Promise<infer T> ? T | undefined : never
+  loading: boolean
+  onClose: () => void
+}) {
+  return (
+    <Card className="mb-4">
+      <CardHeader className="flex-row items-start justify-between gap-4">
+        <div className="min-w-0">
+          <CardTitle>{loading ? 'Loading thread…' : detail?.subject ?? '(no subject)'}</CardTitle>
+          {!loading && detail && <CardDescription>{detail.messages.length} message(s)</CardDescription>}
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close email reader">
+          <X aria-hidden />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading && <p className="text-muted-foreground text-sm">Fetching the email thread…</p>}
+        {detail?.messages.map((message) => (
+          <article key={message.id} className="border-border rounded-md border p-4">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-xs">
+              <span className="font-medium">{message.from_name ?? message.from_address ?? 'Unknown sender'}</span>
+              <time className="text-muted-foreground">
+                {message.received_at ? new Date(message.received_at).toLocaleString() : 'Undated'}
+              </time>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-6">{message.body || '(no text)'}</p>
+            {message.attachments.length > 0 && (
+              <div className="border-border mt-4 flex flex-wrap gap-2 border-t pt-3">
+                {message.attachments.map((attachment) => (
+                  <a
+                    key={attachment.attachment_id}
+                    href={api.results.attachmentUrl(detail.id, message.id, attachment.attachment_id)}
+                    className="border-border hover:bg-muted inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                    download={attachment.filename}
+                  >
+                    <Download className="size-3.5" aria-hidden />
+                    {attachment.filename}
+                  </a>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+      </CardContent>
     </Card>
   )
 }

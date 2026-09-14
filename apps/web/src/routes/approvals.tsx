@@ -43,7 +43,7 @@ function Approvals() {
       <Card data-tour="approvals-panel">
         <CardHeader>
           <div>
-            <CardTitle>Pending approvals</CardTitle>
+            <CardTitle>Pending CRM approvals</CardTitle>
             <CardDescription>
               Nothing reaches Zoho until you approve it here. Execution is direct — no model is
               involved once you decide.
@@ -101,7 +101,7 @@ function Approvals() {
           </div>
           {decided.length === 0 && (
             <Empty title="Nothing decided yet">
-              Approvals you approve or reject appear here, with what was written and when.
+              CRM approvals you approve or reject appear here, with what was written and when.
             </Empty>
           )}
         </Card>

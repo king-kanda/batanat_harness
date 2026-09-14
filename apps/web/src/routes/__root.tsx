@@ -25,7 +25,7 @@ import appCss from '../styles.css?url'
 /** Page titles, keyed by route. Keeps the header honest without prop-drilling. */
 const TITLES: Record<string, string> = {
   '/': 'Chat',
-  '/approvals': 'Approvals',
+  '/approvals': 'CRM approvals',
   '/opportunities': 'Opportunities',
   '/audit': 'Audit logs',
   '/rules': 'Rules',

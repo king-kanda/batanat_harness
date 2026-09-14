@@ -315,7 +315,7 @@ function Greeting() {
     },
     { label: 'Tenders', value: data?.tenders_today ?? 0, hint: 'last 24h', to: '/opportunities' },
     {
-      label: 'Approvals',
+      label: 'CRM approvals',
       value: data?.pending_approvals ?? 0,
       hint: 'awaiting you',
       to: '/approvals',

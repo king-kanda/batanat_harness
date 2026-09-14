@@ -91,6 +91,31 @@ class EmailView(BaseModel):
     feedback: str | None = None
 
 
+class EmailAttachmentView(BaseModel):
+    message_id: str
+    attachment_id: str
+    filename: str
+    mime_type: str
+    size: int
+
+
+class EmailMessageView(BaseModel):
+    id: str
+    from_address: str | None = None
+    from_name: str | None = None
+    subject: str | None = None
+    received_at: datetime | None = None
+    body: str
+    attachments: list[EmailAttachmentView] = Field(default_factory=list)
+
+
+class EmailDetailView(BaseModel):
+    id: uuid.UUID
+    thread_id: str | None = None
+    subject: str | None = None
+    messages: list[EmailMessageView]
+
+
 class TenderView(BaseModel):
     id: uuid.UUID
     source: str

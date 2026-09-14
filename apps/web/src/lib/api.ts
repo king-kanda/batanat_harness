@@ -156,6 +156,31 @@ export type CurrentUser = {
   using_default_password: boolean
 }
 
+export type EmailAttachment = {
+  message_id: string
+  attachment_id: string
+  filename: string
+  mime_type: string
+  size: number
+}
+
+export type EmailMessage = {
+  id: string
+  from_address: string | null
+  from_name: string | null
+  subject: string | null
+  received_at: string | null
+  body: string
+  attachments: EmailAttachment[]
+}
+
+export type EmailDetail = {
+  id: string
+  thread_id: string | null
+  subject: string | null
+  messages: EmailMessage[]
+}
+
 export type UserServiceStats = {
   id: string
   email: string
@@ -216,6 +241,9 @@ export const api = {
 
   results: {
     emails: () => request<EmailView[]>('/api/emails'),
+    email: (id: string) => request<EmailDetail>(`/api/emails/${id}`),
+    attachmentUrl: (emailId: string, messageId: string, attachmentId: string) =>
+      `${API_BASE_URL}/api/emails/${emailId}/attachments/${messageId}/${attachmentId}`,
     clearEmails: () => request<{ deleted: number }>('/api/emails', { method: 'DELETE' }),
     tenders: (includeClosed = false, includeOffSector = false) =>
       request<TenderView[]>(

@@ -36,6 +36,14 @@ class HistoryExpiredError(GmailError):
 
 
 @dataclass(slots=True)
+class GmailAttachment:
+    filename: str
+    mime_type: str
+    size: int
+    attachment_id: str
+
+
+@dataclass(slots=True)
 class GmailMessage:
     """A message, flattened to what we actually use."""
 
@@ -48,6 +56,7 @@ class GmailMessage:
     snippet: str | None
     received_at: datetime | None
     body: str
+    attachments: list[GmailAttachment] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -122,6 +131,12 @@ class GmailClient:
     async def get_message(self, message_id: str) -> GmailMessage:
         data = await self._request("GET", f"/messages/{message_id}", params={"format": "full"})
         return parse_message(data)
+
+    async def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        data = await self._request(
+            "GET", f"/messages/{message_id}/attachments/{attachment_id}"
+        )
+        return base64.urlsafe_b64decode(data.get("data", "") + "=" * (-len(data.get("data", "")) % 4))
 
     async def get_thread(self, thread_id: str, *, limit: int = 25) -> list[GmailMessage]:
         """Every message in a thread, oldest first.
@@ -266,5 +281,24 @@ def parse_message(data: dict[str, Any]) -> GmailMessage:
         snippet=data.get("snippet"),
         received_at=received_at,
         body=extract_body(payload),
+        attachments=extract_attachments(payload),
         raw=data,
     )
+
+
+def extract_attachments(payload: dict[str, Any]) -> list[GmailAttachment]:
+    attachments: list[GmailAttachment] = []
+    for part in payload.get("parts", []) or []:
+        filename = part.get("filename") or ""
+        attachment_id = (part.get("body") or {}).get("attachmentId")
+        if filename and attachment_id:
+            attachments.append(
+                GmailAttachment(
+                    filename=filename,
+                    mime_type=part.get("mimeType") or "application/octet-stream",
+                    size=int((part.get("body") or {}).get("size") or 0),
+                    attachment_id=attachment_id,
+                )
+            )
+        attachments.extend(extract_attachments(part))
+    return attachments

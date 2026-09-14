@@ -40,7 +40,7 @@ import { useOnboarding } from '#/lib/onboarding'
 const WORK = [
   { to: '/', label: 'Chat', icon: MessageSquare },
   { to: '/opportunities', label: 'Opportunities', icon: ListChecks },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare },
+  { to: '/approvals', label: 'CRM approvals', icon: CheckSquare },
 ] as const
 
 /** Looking back: what the assistant did and what it knows. */
@@ -151,7 +151,7 @@ export function AppSidebar() {
                           <span>{label}</span>
                         </Link>
                       </SidebarMenuButton>
-                      {label === 'Approvals' && pending > 0 && (
+                      {label === 'CRM approvals' && pending > 0 && (
                         <SidebarMenuBadge className="text-status-degraded">
                           {pending}
                         </SidebarMenuBadge>

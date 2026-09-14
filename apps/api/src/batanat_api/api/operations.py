@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -34,6 +35,9 @@ from batanat_api.contracts.operations import (
     DemoDataView,
     DiffLine,
     DocumentView,
+    EmailAttachmentView,
+    EmailDetailView,
+    EmailMessageView,
     EmailView,
     FeedbackRequest,
     MemoryView,
@@ -397,6 +401,66 @@ async def list_emails(
         )
         for e in emails
     ]
+
+
+@router.get("/emails/{email_id}", response_model=EmailDetailView)
+async def get_email(email_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> EmailDetailView:
+    email = (
+        await session.execute(select(Email).where(Email.id == email_id, Email.user_id == user.id))
+    ).scalar_one_or_none()
+    if email is None or not email.gmail_thread_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Email not found.")
+
+    from batanat_api.gmail.cleaning import clean_body
+    from batanat_api.gmail.client import GmailClient
+
+    messages = await GmailClient(session, user.id).get_thread(email.gmail_thread_id)
+    return EmailDetailView(
+        id=email.id,
+        thread_id=email.gmail_thread_id,
+        subject=email.subject,
+        messages=[
+            EmailMessageView(
+                id=message.id,
+                from_address=message.from_address,
+                from_name=message.from_name,
+                subject=message.subject,
+                received_at=message.received_at,
+                body=clean_body(message.body)[0],
+                attachments=[
+                    EmailAttachmentView(
+                        message_id=message.id,
+                        attachment_id=attachment.attachment_id,
+                        filename=attachment.filename,
+                        mime_type=attachment.mime_type,
+                        size=attachment.size,
+                    )
+                    for attachment in message.attachments
+                ],
+            )
+            for message in messages
+        ],
+    )
+
+
+@router.get("/emails/{email_id}/attachments/{message_id}/{attachment_id}")
+async def download_email_attachment(
+    email_id: uuid.UUID,
+    message_id: str,
+    attachment_id: str,
+    session: SessionDep,
+    user: CurrentUser,
+) -> StreamingResponse:
+    email = (
+        await session.execute(select(Email).where(Email.id == email_id, Email.user_id == user.id))
+    ).scalar_one_or_none()
+    if email is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Email not found.")
+
+    from batanat_api.gmail.client import GmailClient
+
+    data = await GmailClient(session, user.id).get_attachment(message_id, attachment_id)
+    return StreamingResponse(iter([data]), media_type="application/octet-stream")
 
 
 @router.get("/tenders", response_model=list[TenderView])
