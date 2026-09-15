@@ -142,7 +142,8 @@ class GmailClient:
         data = await self._request(
             "GET", f"/messages/{message_id}/attachments/{attachment_id}"
         )
-        return base64.urlsafe_b64decode(data.get("data", "") + "=" * (-len(data.get("data", "")) % 4))
+        encoded = data.get("data", "")
+        return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
 
     async def get_thread(self, thread_id: str, *, limit: int = 25) -> list[GmailMessage]:
         """Every message in a thread, oldest first.
