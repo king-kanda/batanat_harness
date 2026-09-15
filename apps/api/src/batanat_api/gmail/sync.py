@@ -28,7 +28,7 @@ from batanat_api.core.logging import get_logger
 from batanat_api.db import enums
 from batanat_api.db.models import Connection, Email, GmailSyncState
 from batanat_api.db.mongo import RAW_EMAILS, archive
-from batanat_api.gmail.client import GmailClient, HistoryExpiredError
+from batanat_api.gmail.client import GmailClient, HistoryExpiredError, MessageNotFoundError
 
 log = get_logger(__name__)
 
@@ -137,7 +137,11 @@ async def sync_incremental(
         return outcome
 
     for message_id in message_ids:
-        stored_id, was_new = await _store_message(session, user_id, client, message_id)
+        try:
+            stored_id, was_new = await _store_message(session, user_id, client, message_id)
+        except MessageNotFoundError:
+            log.info("gmail.sync.message_disappeared", gmail_message_id=message_id)
+            continue
         if was_new and stored_id:
             result.new_messages += 1
             result.email_ids.append(stored_id)

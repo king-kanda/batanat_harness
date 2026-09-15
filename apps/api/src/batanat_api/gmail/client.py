@@ -35,6 +35,10 @@ class HistoryExpiredError(GmailError):
     """The stored historyId is too old. Fall back to a full re-sync window."""
 
 
+class MessageNotFoundError(GmailError):
+    """The message id no longer exists in Gmail."""
+
+
 @dataclass(slots=True)
 class GmailAttachment:
     filename: str
@@ -92,9 +96,11 @@ class GmailClient:
             log.info("gmail.token_rejected", detail="forcing a refresh and retrying once")
             response = await self._send(method, path, await self._token(force=True), **kwargs)
 
-        if response.status_code in (404, 410):
+        if response.status_code in (404, 410) and path == "/history":
             # Gmail returns these when a historyId has aged out of the window.
             raise HistoryExpiredError(f"Gmail returned {response.status_code} for {path}")
+        if response.status_code == 404 and path.startswith("/messages/"):
+            raise MessageNotFoundError(f"Gmail returned {response.status_code} for {path}")
         if response.status_code == 401:
             raise ReauthorizationRequiredError(
                 "Gmail rejected the access token even after refreshing it. "
