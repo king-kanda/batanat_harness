@@ -28,6 +28,33 @@ const NAIROBI_TIME_FORMATTER = new Intl.DateTimeFormat('en-KE', {
   timeStyle: 'short',
 })
 
+const SOURCE_SUGGESTIONS = [
+  {
+    name: 'EPRA',
+    listing_url: 'https://www.epra.go.ke/tenders/',
+    entity: 'Energy and Petroleum Regulatory Authority',
+    note: 'Usually a direct notices page.',
+  },
+  {
+    name: 'Kenya Pipeline',
+    listing_url: 'https://www.kpc.co.ke/tenders/',
+    entity: 'Kenya Pipeline Company',
+    note: 'Good energy-sector signal; check for PDF-linked notices.',
+  },
+  {
+    name: 'NOCK',
+    listing_url: 'https://www.nockenya.co.ke/tenders/',
+    entity: 'National Oil Corporation of Kenya',
+    note: 'Often tender bulletins and addenda.',
+  },
+  {
+    name: 'GDC',
+    listing_url: 'https://www.gdc.co.ke/tenders/',
+    entity: 'Geothermal Development Company',
+    note: 'Strong fit for generation/procurement work.',
+  },
+] as const
+
 function formatScheduleTime(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : NAIROBI_TIME_FORMATTER.format(date)
@@ -245,6 +272,17 @@ function SourceRow({
           {source.last_error}
         </p>
       )}
+
+      {!source.is_custom && (
+        <p className="text-muted-foreground mt-1 text-[11px]">
+          Shipped source: disable to remove it from sweeps.
+        </p>
+      )}
+      {source.is_custom && (
+        <p className="text-muted-foreground mt-1 text-[11px]">
+          Custom source: you can disable or remove it.
+        </p>
+      )}
     </div>
   )
 }
@@ -283,6 +321,32 @@ function AddSource({ onError }: { onError: (message: string | null) => void }) {
       </CardHeader>
 
       <CardContent>
+        <div className="mb-4">
+          <p className="text-muted-foreground mb-2 text-xs">Quick suggestions</p>
+          <div className="flex flex-wrap gap-2">
+            {SOURCE_SUGGESTIONS.map((suggestion) => (
+              <Button
+                key={suggestion.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setName(suggestion.name)
+                  setUrl(suggestion.listing_url)
+                  setEntity(suggestion.entity)
+                }}
+              >
+                {suggestion.name}
+              </Button>
+            ))}
+          </div>
+          <p className="text-muted-foreground mt-2 text-[11px]">
+            {SOURCE_SUGGESTIONS.map((suggestion) => `${suggestion.name}: ${suggestion.note}`).join(
+              ' · ',
+            )}
+          </p>
+        </div>
+
         <form
           className="grid gap-4 sm:max-w-lg"
           onSubmit={(e) => {

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,10 +23,20 @@ from batanat_api.db.models import Run, SkillVersion, Tender
 from batanat_api.tenders.base import PoliteClient
 from batanat_api.tenders.ingest import ingest_report, record_source_health
 from batanat_api.tenders.relevance import RELEVANT_AT, refine_relevance
+from batanat_api.tenders.search_source import WebSearchSource
 from batanat_api.tenders.sources import build_sources_from_db
 from batanat_api.validation.validator import validate_tenders
 
 log = get_logger(__name__)
+
+
+def _domain_from(url: str | None) -> str | None:
+    if not url:
+        return None
+    host = urlsplit(url).netloc.strip().lower()
+    if not host:
+        return None
+    return host.removeprefix("www.")
 
 
 async def run_tender_cycle(
@@ -69,12 +80,30 @@ async def run_tender_cycle(
     for source in await build_sources_from_db(session):
         report = await source.collect(client)
         await record_source_health(session, report)
+        fallback_summary: dict | None = None
 
         if report.ok:
             fetched_urls.append(report.url or source.listing_url)
             fetched_urls.extend(t.source_url for t in report.tenders)
             ingested = await ingest_report(session, report, run_id=run.id, now=now)
             new_tender_ids.extend(ingested.tender_ids)
+        else:
+            domain = _domain_from(source.listing_url)
+            if domain:
+                fallback = WebSearchSource(domain=domain, entity=source.entity)
+                fallback_report = await fallback.collect(client)
+                fallback_summary = {
+                    "source": fallback_report.source_key,
+                    "ok": fallback_report.ok,
+                    "count": len(fallback_report.tenders),
+                    "degraded": fallback_report.degraded,
+                    "error": fallback_report.error,
+                }
+                if fallback_report.ok and fallback_report.tenders:
+                    fetched_urls.append(fallback_report.url or source.listing_url)
+                    fetched_urls.extend(t.source_url for t in fallback_report.tenders)
+                    ingested = await ingest_report(session, fallback_report, run_id=run.id, now=now)
+                    new_tender_ids.extend(ingested.tender_ids)
 
         source_summaries.append(
             {
@@ -83,6 +112,7 @@ async def run_tender_cycle(
                 "count": len(report.tenders),
                 "degraded": report.degraded,
                 "error": report.error,
+                "fallback": fallback_summary,
             }
         )
 
